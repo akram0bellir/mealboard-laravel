@@ -1,0 +1,214 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import './shadcn.css';
+@import '@fontsource-variable/inter';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+@source '../**/*.js';
+
+/* next/font gave the page --font-inter; here it is the self-hosted Inter. */
+:root {
+  --font-inter: 'Inter Variable';
+}
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+
+  --color-page: #fcfcfa;
+  --color-ink: #111110;
+  --color-ink-2: #1c1c1a;
+  --color-ink-3: #22221f;
+  --color-cream: #f5f3ea;
+  --color-cream-deep: #ebe8db;
+  --color-lime: #F63440;
+  --color-muted-light: #8a887c;
+  --color-muted-dark: #a3a198;
+  --color-booked: #d9efce;
+  --color-booked-deep: #c9e7bb;
+  --color-booked-ink: #1d5c33;
+  --color-danger: #d63a2a;
+  --color-danger-soft: #fbe3df;
+  --color-danger-bright: #ff8676;
+
+  --radius-section: 40px;
+  --radius-card: 28px;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-input: var(--input);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+}
+
+:root {
+  color-scheme: light;
+  --background: #fcfcfa;
+  --foreground: #111110;
+  --primary: #111110;
+  --primary-foreground: #fcfcfa;
+  --secondary: #f5f3ea;
+  --secondary-foreground: #111110;
+  --muted: #f5f3ea;
+  --muted-foreground: #8a887c;
+  --accent: #e9ff3f;
+  --accent-foreground: #111110;
+  --destructive: #d63a2a;
+  --border: transparent;
+  --input: #ebe8db;
+  --ring: #111110;
+  --radius: 0.75rem;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-page text-ink font-sans;
+  }
+}
+
+@layer utilities {
+    .dot-grid {
+    background-image: radial-gradient(rgba(252, 252, 250, 0.14) 1px, transparent 1px);
+    background-size: 18px 18px;
+    mask-image: radial-gradient(ellipse at 100% 0%, black 0%, transparent 60%);
+  }
+
+  .reveal {
+    opacity: 0;
+    animation: reveal 600ms ease-out forwards;
+    animation-delay: calc(var(--i, 0) * 80ms);
+  }
+}
+
+/* /serve result card: the bar that runs down before the screen clears for the next person */
+@keyframes serve-countdown {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes reveal {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+/* Printed invoice: page 1 = invoice, page 2 = daily breakdown (a full month fits). Screen layout is unchanged. */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm 14mm;
+  }
+  /* Paper is white and starts at the A4 margins: no page background, padding or screen width on top of them. */
+  html,
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+  .invoice-print {
+    width: 100% !important;
+    margin: 0 !important;
+    font-size: 11px;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .invoice-print h2 {
+    font-size: 24px !important;
+  }
+  .invoice-print h3 {
+    margin-top: 0 !important;
+    font-size: 15px !important;
+  }
+  .invoice-print p,
+  .invoice-print dl,
+  .invoice-print table {
+    font-size: 11px !important;
+  }
+  .invoice-print > header,
+  .invoice-print > div {
+    padding-top: 8px !important;
+    padding-bottom: 8px !important;
+  }
+  .invoice-print th,
+  .invoice-print td {
+    padding-top: 2px !important;
+    padding-bottom: 2px !important;
+  }
+  /* Tables print at full width with every column; no scroll containers on paper. */
+  .invoice-print .overflow-x-auto {
+    overflow: visible !important;
+  }
+  .invoice-print table {
+    width: 100% !important;
+    min-width: 0 !important;
+    margin-top: 4px !important;
+  }
+  /* Long tables (the daily breakdown) continue on the next page instead of jumping to it whole and leaving a
+     big empty space; single rows and the small summary blocks stay together, and column headings repeat. */
+  .invoice-print tr,
+  .invoice-print dl {
+    break-inside: avoid;
+  }
+  .invoice-print thead {
+    display: table-header-group;
+  }
+  .invoice-print tfoot {
+    display: table-footer-group;
+  }
+}
+
+/* "Print kitchen sheet": print only that section of the statistics page. */
+@media print {
+  body[data-print='kitchen'] main > :not([data-print-section='kitchen']) {
+    display: none !important;
+  }
+}
+
+/* The React UI draws every Lucide icon with strokeWidth 1.5; the Blade icons default to 2. */
+svg[viewBox="0 0 24 24"][stroke="currentColor"] {
+  stroke-width: 1.5;
+}
+
+/* "Print kitchen sheet": print only that section of the statistics page. */
+@media print {
+  body[data-print='kitchen'] main > :not([data-print-section='kitchen']) {
+    display: none !important;
+  }
+}
