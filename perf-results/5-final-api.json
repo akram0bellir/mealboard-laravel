@@ -1,0 +1,145 @@
+{
+  "url": "http://127.0.0.1:8088",
+  "concurrency": 32,
+  "duration": 15.107,
+  "mix": "api",
+  "requests": 2398,
+  "perSecond": 158.7343615542464,
+  "failed": 0,
+  "median": 99.0553,
+  "p95": 779.7255,
+  "p99": 1336.622,
+  "timeline": [
+    {
+      "at": 0,
+      "n": 134,
+      "failed": 0
+    },
+    {
+      "at": 1,
+      "n": 158,
+      "failed": 0
+    },
+    {
+      "at": 2,
+      "n": 163,
+      "failed": 0
+    },
+    {
+      "at": 3,
+      "n": 156,
+      "failed": 0
+    },
+    {
+      "at": 4,
+      "n": 161,
+      "failed": 0
+    },
+    {
+      "at": 5,
+      "n": 162,
+      "failed": 0
+    },
+    {
+      "at": 6,
+      "n": 164,
+      "failed": 0
+    },
+    {
+      "at": 7,
+      "n": 160,
+      "failed": 0
+    },
+    {
+      "at": 8,
+      "n": 156,
+      "failed": 0
+    },
+    {
+      "at": 9,
+      "n": 156,
+      "failed": 0
+    },
+    {
+      "at": 10,
+      "n": 161,
+      "failed": 0
+    },
+    {
+      "at": 11,
+      "n": 163,
+      "failed": 0
+    },
+    {
+      "at": 12,
+      "n": 161,
+      "failed": 0
+    },
+    {
+      "at": 13,
+      "n": 159,
+      "failed": 0
+    },
+    {
+      "at": 14,
+      "n": 163,
+      "failed": 0
+    }
+  ],
+  "byRequest": {
+    "door: mark served": {
+      "n": 249,
+      "failed": 0,
+      "median": 115.6126,
+      "p95": 1053.7589,
+      "codes": {
+        "200": 249
+      }
+    },
+    "door: booking rules": {
+      "n": 587,
+      "failed": 0,
+      "median": 99.3423,
+      "p95": 665.1631,
+      "codes": {
+        "200": 587
+      }
+    },
+    "door: day bookings": {
+      "n": 944,
+      "failed": 0,
+      "median": 98.3392,
+      "p95": 867.7363,
+      "codes": {
+        "200": 944
+      }
+    },
+    "door: heartbeat": {
+      "n": 368,
+      "failed": 0,
+      "median": 93.8252,
+      "p95": 704.9169,
+      "codes": {
+        "200": 368
+      }
+    },
+    "door: meal groups": {
+      "n": 172,
+      "failed": 0,
+      "median": 106.2749,
+      "p95": 732.0031,
+      "codes": {
+        "200": 172
+      }
+    },
+    "door: everyone (badges)": {
+      "n": 78,
+      "failed": 0,
+      "median": 75.2402,
+      "p95": 779.7255,
+      "codes": {
+        "200": 78
+      }
+    }
+  }
+}

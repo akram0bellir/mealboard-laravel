@@ -39,7 +39,7 @@ class NotificationController extends Controller
     public static function mine(string $userId, int $limit = 0): array
     {
         $query = DB::table('notifications')
-            ->whereRaw('JSON_CONTAINS(recipients, JSON_QUOTE(?))', [$userId])
+            ->whereRaw('? MEMBER OF (recipients)', [$userId]) // uses ix_notifications_recipients
             ->orderByDesc('created');
         if ($limit > 0) {
             $query->limit($limit);

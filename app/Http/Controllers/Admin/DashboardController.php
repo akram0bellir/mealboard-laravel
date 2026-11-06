@@ -32,10 +32,26 @@ class DashboardController extends Controller
 
         $people = DB::table('user')->selectRaw('COUNT(*) total, COALESCE(SUM(Status = 1), 0) active')->first();
 
+        // The whole week in two queries (not two per day).
+        $from = "{$keys[0]} 00:00:00.000";
+        $to = "{$keys[6]} 23:59:59.999";
+        $dishesByDay = [];
+        foreach (DB::table('meun')->where('day', '>=', $from)->where('day', '<=', $to)->get() as $row) {
+            foreach (self::FIELDS as $meal => [$column]) {
+                if (trim((string) $row->{$column}) !== '') {
+                    $dishesByDay[Days::keyOf($row->day)][$meal] = trim((string) $row->{$column});
+                }
+            }
+        }
+        $countsByDay = DB::table('oder')->where('date', '>=', $from)->where('date', '<=', $to)
+            ->selectRaw('LEFT(`date`, 10) d, COALESCE(SUM(bool), 0) breakfast, COALESCE(SUM(bool2), 0) lunch, COALESCE(SUM(bool3), 0) dinner')
+            ->groupByRaw('LEFT(`date`, 10)')->get()->keyBy('d');
+
         $week = [];
         foreach ($keys as $key) {
-            $dishes = $this->dishes($key);
-            $counts = $this->bookings($key);
+            $dishes = $dishesByDay[$key] ?? [];
+            $row = $countsByDay[$key] ?? null;
+            $counts = ['breakfast' => (int) ($row->breakfast ?? 0), 'lunch' => (int) ($row->lunch ?? 0), 'dinner' => (int) ($row->dinner ?? 0)];
             $manager = ManagerMeals::on($key, array_keys($dishes));
             $meals = [];
             foreach (BookingRules::MEALS as $meal) {
@@ -90,29 +106,5 @@ class DashboardController extends Controller
         }
         $totals = collect(BookingRules::MEALS)->map(fn ($m) => t(ucfirst($m)) . ' ' . $result['totals'][$m])->implode(' · ');
         return redirect($back)->withInput()->with('email_status', [true, t('Sent to {0} people: {1} bookings ({2}).', [0 => count($result['recipients']), 1 => $result['bookings'], 2 => $totals])]);
-    }
-
-    /** The dishes served on a day: meal => name. */
-    private function dishes(string $day): array
-    {
-        $out = [];
-        foreach (DB::table('meun')->where('day', '>=', "$day 00:00:00.000")->where('day', '<=', "$day 23:59:59.999")->get() as $row) {
-            foreach (self::FIELDS as $meal => [$column]) {
-                if (trim((string) $row->{$column}) !== '') {
-                    $out[$meal] = trim((string) $row->{$column});
-                }
-            }
-        }
-        return $out;
-    }
-
-    /** Booked meals of a day, per meal (missed ones count, like the order list). */
-    private function bookings(string $day): array
-    {
-        $row = DB::table('oder')
-            ->where('date', '>=', "$day 00:00:00.000")->where('date', '<=', "$day 23:59:59.999")
-            ->selectRaw('COALESCE(SUM(bool), 0) breakfast, COALESCE(SUM(bool2), 0) lunch, COALESCE(SUM(bool3), 0) dinner')
-            ->first();
-        return ['breakfast' => (int) $row->breakfast, 'lunch' => (int) $row->lunch, 'dinner' => (int) $row->dinner];
     }
 }

@@ -61,6 +61,15 @@ Artisan::command('mealboard:set-password {login : e-mail or username} {password 
     $this->info('Password changed for ' . ($user->email ?: $user->username) . " ({$user->User_Type}).");
 })->purpose('Set a new password for one account');
 
+// Old sessions and expired API tokens: swept once a day instead of during visitors' requests.
+Artisan::command('mealboard:sessions-gc', function () {
+    $sessions = app('session')->driver()->getHandler()->gc((int) config('session.lifetime') * 60);
+    $tokens = DB::table('auth_tokens')->whereRaw('expires < UTC_TIMESTAMP(3)')->delete();
+    $attempts = DB::table('login_attempts')->where('first_at', '<', gmdate('Y-m-d H:i:s', time() - 86400))->whereNull('blocked_until')->delete();
+    $this->info("Removed {$sessions} old sessions, {$tokens} expired API tokens, {$attempts} old failed-login records.");
+})->purpose('Remove old sessions, expired API tokens and old failed-login records');
+Schedule::command('mealboard:sessions-gc')->dailyAt('03:30');
+
 // The same jobs as the old Windows tasks: the cron every 5 minutes, a backup every 6 hours.
 // (A host that runs `php artisan schedule:run` every minute needs nothing else.)
 Schedule::command('mealboard:cron')->everyFiveMinutes()->withoutOverlapping();

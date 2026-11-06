@@ -184,8 +184,9 @@ class Cron
         return $rows->count();
     }
 
+    /** Now in milliseconds, on the app's clock (the same clock as the meal times; tests can move it). */
     public static function nowMs(): int
     {
-        return (int) round(microtime(true) * 1000);
+        return (int) round(Days::now()->getPreciseTimestamp(3));
     }
 }

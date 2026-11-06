@@ -6,10 +6,13 @@ namespace App\Support;
  * Compile-time icons. `<x-lucide-check class="size-4" aria-hidden="true" />` is replaced by the exact SVG the
  * blade-icons component would print, once, when the view is compiled. Tags with anything dynamic (`:attr`,
  * `{{ }}`, `@...`, a valueless attribute) are left to the normal component.
+ *
+ * Same output to the byte: the component prints the SVG trimmed, and the line break right after the tag disappears
+ * (PHP drops a newline after `?>`), so that line break is dropped here too.
  */
 class InlineIcons
 {
-    private const TAG = '/<x-lucide-([a-z0-9-]+)((?:\s+[^\s=>\/]+(?:="[^"]*")?)*)\s*\/>/';
+    private const TAG = '/<x-lucide-([a-z0-9-]+)((?:\s+[^\s=>\/]+(?:="[^"]*")?)*)\s*\/>(\r?\n)?/';
 
     public static function compile(string $template): string
     {
@@ -30,7 +33,7 @@ class InlineIcons
             $class = $attributes['class'] ?? '';
             unset($attributes['class']);
             try {
-                return svg('lucide-' . $m[1], $class, $attributes)->toHtml();
+                return trim(svg('lucide-' . $m[1], $class, $attributes)->toHtml());
             } catch (\Throwable) {
                 return $m[0]; // unknown icon: let the component report it
             }

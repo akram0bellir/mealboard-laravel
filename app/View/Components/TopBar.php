@@ -31,8 +31,8 @@ class TopBar extends Component
         if ($user !== null) {
             $this->strikes = Standing::strikes($user);
             $this->unread = (int) DB::table('notifications')
-                ->whereRaw('JSON_CONTAINS(recipients, JSON_QUOTE(?))', [$user->id])
-                ->whereRaw('NOT JSON_CONTAINS(read_by, JSON_QUOTE(?))', [$user->id])
+                ->whereRaw('? MEMBER OF (recipients)', [$user->id]) // uses ix_notifications_recipients
+                ->whereRaw('NOT (? MEMBER OF (read_by))', [$user->id])
                 ->count();
         }
     }

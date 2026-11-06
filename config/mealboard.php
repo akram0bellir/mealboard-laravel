@@ -17,6 +17,11 @@ return [
     // How long a door / API login token stays valid; refresh pushes it forward.
     'token_days' => (int) env('MEALBOARD_TOKEN_DAYS', 14),
 
+    // Fixed sign-in for the control panel (/control), besides the super admin accounts. Empty = switched off.
+    // Use a long password: this panel can change every table.
+    'control_user' => env('MEALBOARD_CONTROL_USER', ''),
+    'control_password' => env('MEALBOARD_CONTROL_PASSWORD', ''),
+
     // Master switch for real e-mail sending. Turn it off on a test copy of the database that holds the
     // company's real SMTP login, so nothing can reach real people by mistake.
     'send_mail' => (bool) env('MEALBOARD_SEND_MAIL', true),

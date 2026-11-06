@@ -21,6 +21,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [SetLocale::class]);
         // The gate's line ending is "\n" or "\r\n": keep it as sent.
         $middleware->trimStrings(except: [fn (Request $request) => $request->is('api/gate')]);
+        // The control panel checks its own X-CSRF token (same as the PHP version's page script).
+        $middleware->validateCsrfTokens(except: ['control']);
         $middleware->alias(['side' => EnsureSide::class, 'admin.page' => AdminPage::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

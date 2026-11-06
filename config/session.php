@@ -114,7 +114,9 @@ return [
     |
     */
 
-    'lottery' => [2, 100],
+    // Mealboard: the sweep reads every session file, so it runs on 2 requests in 1000 instead of 2 in 100;
+    // the scheduler also sweeps once a day (routes/console.php, mealboard:sessions-gc).
+    'lottery' => [2, 1000],
 
     /*
     |--------------------------------------------------------------------------

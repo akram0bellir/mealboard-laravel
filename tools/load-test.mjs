@@ -141,9 +141,9 @@ async function main() {
 
   console.log(`\n${done} requests in ${secs.toFixed(1)} s = ${(done / secs).toFixed(0)} per second, ${failed} failed`)
   console.log(`median ${pct(all, 0.5).toFixed(1)} ms · 95% under ${pct(all, 0.95).toFixed(1)} ms · 99% under ${pct(all, 0.99).toFixed(1)} ms · slowest ${Math.max(...all).toFixed(0)} ms\n`)
-  console.log('request'.padEnd(30) + 'count'.padStart(7) + 'median'.padStart(9) + 'p95'.padStart(9) + '  codes')
+  console.log('request'.padEnd(30) + 'count'.padStart(7) + 'median'.padStart(9) + 'p95'.padStart(9) + 'max'.padStart(9) + '  codes')
   for (const [name, s] of Object.entries(stats).sort((a, b) => b[1].n - a[1].n)) {
-    console.log(name.padEnd(30) + String(s.n).padStart(7) + `${pct(s.ms, 0.5).toFixed(1)}`.padStart(9) + `${pct(s.ms, 0.95).toFixed(1)}`.padStart(9) + '  ' + JSON.stringify(s.codes))
+    console.log(name.padEnd(30) + String(s.n).padStart(7) + `${pct(s.ms, 0.5).toFixed(1)}`.padStart(9) + `${pct(s.ms, 0.95).toFixed(1)}`.padStart(9) + `${Math.max(...s.ms).toFixed(0)}`.padStart(9) + '  ' + JSON.stringify(s.codes))
   }
   if (OUT) {
     mkdirSync(path.dirname(OUT), { recursive: true })

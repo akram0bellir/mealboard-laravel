@@ -72,7 +72,7 @@
             <li class="reveal flex min-h-64 flex-col justify-between gap-8 rounded-card p-8 sm:p-10 {{ $rule['filled'] ? 'bg-cream-deep' : '' }}"
                 style="--i: {{ $i + 2 }}">
               <span class="flex size-14 items-center justify-center rounded-full bg-ink">
-                <x-dynamic-component :component="'lucide-' . $rule['icon']" class="size-5 text-lime" />
+                @icon($rule['icon'], 'size-5 text-lime')
               </span>
               <div class="flex flex-col gap-3">
                 <h3 class="text-2xl font-medium tracking-[-0.01em]">{{ t($rule['title']) }}</h3>

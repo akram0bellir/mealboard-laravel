@@ -177,7 +177,7 @@ class ApiTest extends TestCase
         $row = DB::table('_mealboard_doors')->where('door', 'hb-test-1')->first();
         $this->assertSame(3, (int) $row->pending);
         $this->assertSame(180, (int) $row->close_after, 'capped at 180 minutes');
-        $this->assertEqualsWithDelta(microtime(true) * 1000, (int) $row->last_seen, 5000);
+        $this->assertEqualsWithDelta(\App\Services\Cron::nowMs(), (int) $row->last_seen, 5000);
         $this->postJson('/api/mealboard/door-heartbeat', ['door' => 'hb-test-1', 'pending' => 0], $h);
         $this->assertNull(DB::table('_mealboard_doors')->where('door', 'hb-test-1')->value('oldest_pending'), 'nothing pending: no oldest mark');
         $this->assertSame(1, DB::table('_mealboard_doors')->where('door', 'hb-test-1')->count(), 'one row per door');

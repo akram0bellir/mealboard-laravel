@@ -1,7 +1,7 @@
 @php use App\Support\Days; $meals = ['breakfast', 'lunch', 'dinner']; @endphp
 <x-layouts.admin>
   <x-admin.section tone="ink">
-    <x-admin.heading :label="t('Book people')" :description="t('Put anyone on any day\'s meals — past or locked days, paused people, meals outside their plan, Ramadan, even switched-off accounts. No rule stops you and no strike is added.')">
+    <x-admin.heading :label="t('Book people')" :description="t('Put anyone on any day\'s meals, including people who never booked — past or locked days, paused people, meals outside their plan, Ramadan, even switched-off accounts. One day or a range, chosen people or everyone in the list. No rule stops you and no strike is added.')">
       <x-slot:title>{{ t('Add people to') }} <span class="text-lime">{{ t('meals') }}</span></x-slot:title>
     </x-admin.heading>
     <form method="GET" action="/diners" data-autosubmit class="mt-10 flex flex-col gap-4 md:flex-row md:flex-wrap md:items-center">
@@ -27,9 +27,15 @@
       <form method="POST" action="/diners" class="flex flex-col gap-5 rounded-card bg-page p-6" data-add-form>
         @csrf
         <input type="hidden" name="date" value="{{ $date }}">
+        <input type="hidden" name="q" value="{{ $q }}"><input type="hidden" name="dept" value="{{ $dept }}">
         <div>
           <h3 class="text-xl font-medium">{{ t('Who eats?') }}</h3>
           <p class="mt-1 text-[13px] text-mute">{{ $matches === 1 ? t('1 person found') : t('{0} people found', [0 => $matches]) }}</p>
+        </div>
+        <div class="flex flex-wrap items-end gap-3">
+          <x-admin.field :label="t('From')" for="d-from"><x-admin.input id="d-from" type="date" value="{{ $date }}" disabled class="!h-10 !w-auto" /></x-admin.field>
+          <x-admin.field :label="t('Until (optional)')" for="d-until" :hint="t('Every day up to this one, at most {0} days.', [0 => $maxDays])"><x-admin.input id="d-until" type="date" name="until" min="{{ $date }}" class="!h-10 !w-auto" /></x-admin.field>
+          <label class="flex cursor-pointer items-center gap-2 pb-8 text-[14px]"><input type="checkbox" name="menu_only" value="1" class="size-5 cursor-pointer accent-ink"> {{ t('Only days with that meal on the menu') }}</label>
         </div>
         <fieldset class="flex flex-wrap gap-3">
           <legend class="sr-only">{{ t('Meals') }}</legend>
@@ -58,6 +64,9 @@
             <li class="px-3 py-2 text-[14px] text-mute">{{ t('Nobody found.') }}</li>
           @endforelse
         </ul>
+        <label class="flex cursor-pointer items-center gap-3 text-[14px]" data-everyone>
+          <input type="checkbox" name="everyone" value="1" class="size-5 cursor-pointer accent-ink"> {{ t('Everyone in this list ({0} people), not only the ticked ones', [0 => $matches]) }}
+        </label>
         <label class="flex cursor-pointer items-center gap-3 text-[14px]">
           <input type="checkbox" name="notify" value="1" checked class="size-5 cursor-pointer accent-ink"> {{ t('Tell them in the app (and by e-mail)') }}
         </label>
@@ -84,6 +93,12 @@
                 </div>
                 <div class="flex flex-wrap gap-2">
                   @foreach ($b['meals'] as $m)
+                    @php $isServed = in_array($m, $b['served'], true); @endphp
+                    <form method="POST" action="/diners/{{ $b['id'] }}/served" data-served-form>
+                      @csrf
+                      <input type="hidden" name="meal" value="{{ $m }}"><input type="hidden" name="served" value="{{ $isServed ? 0 : 1 }}">
+                      <x-admin.btn type="submit" size="sm" :variant="$isServed ? 'dark' : 'ghost'" aria-label="{{ $isServed ? t('{0}: undo served', [0 => $b['name'] . ' · ' . t(ucfirst($m))]) : t('{0}: mark served', [0 => $b['name'] . ' · ' . t(ucfirst($m))]) }}"><x-lucide-check />{{ $isServed ? t('Served') : t('Serve') }}</x-admin.btn>
+                    </form>
                     <form method="POST" action="/diners/{{ $b['id'] }}/remove">
                       @csrf
                       <input type="hidden" name="meals" value="{{ $m }}">

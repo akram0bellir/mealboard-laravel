@@ -20,12 +20,16 @@ class Bookings
      *
      * @return array{0: array<string, string[]>, 1: array<string, string>, 2: array<string, true>}
      */
-    public static function forUser(string $userId): array
+    public static function forUser(string $userId, ?string $fromDay = null): array
     {
         $bookings = [];
         $ids = [];
         $frozen = [];
-        foreach (DB::table('oder')->where('user', $userId)->orderBy('date')->get() as $row) {
+        $query = DB::table('oder')->where('user', $userId);
+        if ($fromDay !== null) {
+            $query->where('date', '>=', "$fromDay 00:00:00.000"); // uses the (user, date) index; the history is not needed
+        }
+        foreach ($query->orderBy('date')->get() as $row) {
             $date = Days::keyOf($row->date);
             if ($date === '') {
                 continue;
@@ -64,7 +68,8 @@ class Bookings
         $rules = BookingRules::current();
         $plan = MealPlan::for($user, $rules);
         $standing = Standing::read($user, true, $rules);
-        [$bookings, $ids, $frozen] = self::forUser($user->id);
+        $dates = array_filter(array_keys($changes), fn ($d) => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $d));
+        [$bookings, $ids, $frozen] = self::forUser($user->id, $dates ? min($dates) : Days::today());
         $single = $plan['max'] === 1;
 
         $done = [];
@@ -113,7 +118,7 @@ class Bookings
     public static function cancelDay(User $user, string $date, ?array $meals): array
     {
         $rules = BookingRules::current();
-        [$bookings, $ids, $frozen] = self::forUser($user->id);
+        [$bookings, $ids, $frozen] = self::forUser($user->id, $date);
         $current = $bookings[$date] ?? [];
         $status = $rules->dayStatus($date);
 

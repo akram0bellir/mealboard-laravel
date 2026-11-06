@@ -58,7 +58,7 @@
                     <span class="block truncate text-[15px] font-medium">{{ $p['name'] }}</span>
                     <span class="block truncate text-[12px] text-mute">{{ t('Dept {dept}', ['dept' => $p['department']]) }}{{ $p['cardId'] ? ' · ' . t('card') . ' ' . $p['cardId'] : '' }}</span>
                   </span>
-                  @if ($linkNumber)<x-lucide-link-2 class="size-4 text-mute" aria-label="{{ t('Link badge') }}" />@endif
+                  @if ($linkNumber)@icon('link-2', 'size-4 text-mute', ['aria-label' => e(t('Link badge'))])@endif
                 </button>
               </form>
             </li>
@@ -115,7 +115,7 @@
             @foreach ($relay['devices'] as $dev)
               <li class="flex flex-wrap items-center gap-3 rounded-[16px] px-4 py-3 {{ $dev['selected'] ? 'bg-booked' : 'bg-cream' }}">
                 <span class="min-w-0 flex-1">
-                  <span class="block truncate text-[14px] font-medium">{{ $dev['path'] }}{{ $dev['kind'] ? ' · ' . $dev['kind'] : '' }} @if ($dev['selected'])<x-lucide-check class="inline size-4" aria-label="{{ t('In use') }}" />@endif</span>
+                  <span class="block truncate text-[14px] font-medium">{{ $dev['path'] }}{{ $dev['kind'] ? ' · ' . $dev['kind'] : '' }} @if ($dev['selected'])@icon('check', 'inline size-4', ['aria-label' => e(t('In use'))])@endif</span>
                   <span class="block truncate text-[11px] text-mute">{{ $dev['name'] ?: t('Unnamed device') }}@if ($dev['vendorId'])<span class="font-mono"> · {{ strtoupper($dev['vendorId'] . ':' . $dev['productId']) }}</span>@endif</span>
                 </span>
                 <x-admin.btn type="submit" name="port" value="{{ $dev['path'] }}" formaction="/serve/relay/test" variant="soft" size="sm"><x-lucide-zap aria-hidden="true" /> {{ t('Test') }}</x-admin.btn>

@@ -1,0 +1,260 @@
+{
+  "url": "http://127.0.0.1:8088",
+  "concurrency": 32,
+  "duration": 20.677,
+  "mix": "normal",
+  "requests": 1496,
+  "perSecond": 72.35092131353679,
+  "failed": 0,
+  "median": 177.9809,
+  "p95": 662.0228,
+  "p99": 3445.7722,
+  "timeline": [
+    {
+      "at": 0,
+      "n": 79,
+      "failed": 0
+    },
+    {
+      "at": 1,
+      "n": 74,
+      "failed": 0
+    },
+    {
+      "at": 2,
+      "n": 70,
+      "failed": 0
+    },
+    {
+      "at": 3,
+      "n": 74,
+      "failed": 0
+    },
+    {
+      "at": 4,
+      "n": 79,
+      "failed": 0
+    },
+    {
+      "at": 5,
+      "n": 73,
+      "failed": 0
+    },
+    {
+      "at": 6,
+      "n": 81,
+      "failed": 0
+    },
+    {
+      "at": 7,
+      "n": 89,
+      "failed": 0
+    },
+    {
+      "at": 8,
+      "n": 69,
+      "failed": 0
+    },
+    {
+      "at": 9,
+      "n": 69,
+      "failed": 0
+    },
+    {
+      "at": 10,
+      "n": 85,
+      "failed": 0
+    },
+    {
+      "at": 11,
+      "n": 65,
+      "failed": 0
+    },
+    {
+      "at": 12,
+      "n": 66,
+      "failed": 0
+    },
+    {
+      "at": 13,
+      "n": 66,
+      "failed": 0
+    },
+    {
+      "at": 14,
+      "n": 75,
+      "failed": 0
+    },
+    {
+      "at": 15,
+      "n": 73,
+      "failed": 0
+    },
+    {
+      "at": 16,
+      "n": 78,
+      "failed": 0
+    },
+    {
+      "at": 17,
+      "n": 69,
+      "failed": 0
+    },
+    {
+      "at": 18,
+      "n": 67,
+      "failed": 0
+    },
+    {
+      "at": 19,
+      "n": 69,
+      "failed": 0
+    }
+  ],
+  "byRequest": {
+    "door: mark served": {
+      "n": 46,
+      "failed": 0,
+      "median": 89.1683,
+      "p95": 312.5955,
+      "codes": {
+        "200": 46
+      }
+    },
+    "door: day bookings": {
+      "n": 173,
+      "failed": 0,
+      "median": 80.6574,
+      "p95": 293.0356,
+      "codes": {
+        "200": 173
+      }
+    },
+    "employee: profile": {
+      "n": 88,
+      "failed": 0,
+      "median": 181.5481,
+      "p95": 459.062,
+      "codes": {
+        "200": 88
+      }
+    },
+    "admin: dashboard": {
+      "n": 104,
+      "failed": 0,
+      "median": 203.759,
+      "p95": 544.6149,
+      "codes": {
+        "200": 104
+      }
+    },
+    "employee: review a booking": {
+      "n": 81,
+      "failed": 0,
+      "median": 155.3102,
+      "p95": 354.68,
+      "codes": {
+        "302": 81
+      }
+    },
+    "admin: attendance": {
+      "n": 64,
+      "failed": 0,
+      "median": 190.4216,
+      "p95": 549.1713,
+      "codes": {
+        "200": 64
+      }
+    },
+    "employee: notifications": {
+      "n": 144,
+      "failed": 0,
+      "median": 177.7825,
+      "p95": 403.3967,
+      "codes": {
+        "200": 144
+      }
+    },
+    "door: booking rules": {
+      "n": 107,
+      "failed": 0,
+      "median": 83.9538,
+      "p95": 281.8306,
+      "codes": {
+        "200": 107
+      }
+    },
+    "employee: week page": {
+      "n": 388,
+      "failed": 0,
+      "median": 257.4902,
+      "p95": 562.2953,
+      "codes": {
+        "200": 388
+      }
+    },
+    "door: heartbeat": {
+      "n": 75,
+      "failed": 0,
+      "median": 87.4198,
+      "p95": 311.681,
+      "codes": {
+        "200": 75
+      }
+    },
+    "login page": {
+      "n": 83,
+      "failed": 0,
+      "median": 221.5159,
+      "p95": 486.7261,
+      "codes": {
+        "200": 83
+      }
+    },
+    "door: everyone (badges)": {
+      "n": 17,
+      "failed": 0,
+      "median": 155.5644,
+      "p95": 344.2294,
+      "codes": {
+        "200": 17
+      }
+    },
+    "admin: serve page": {
+      "n": 37,
+      "failed": 0,
+      "median": 196.6326,
+      "p95": 461.9281,
+      "codes": {
+        "200": 37
+      }
+    },
+    "door: meal groups": {
+      "n": 35,
+      "failed": 0,
+      "median": 81.623,
+      "p95": 194.8856,
+      "codes": {
+        "200": 35
+      }
+    },
+    "admin: users": {
+      "n": 34,
+      "failed": 0,
+      "median": 1880.0762,
+      "p95": 2293.6902,
+      "codes": {
+        "200": 34
+      }
+    },
+    "admin: statistics": {
+      "n": 20,
+      "failed": 0,
+      "median": 2936.3188,
+      "p95": 3741.6382,
+      "codes": {
+        "200": 20
+      }
+    }
+  }
+}

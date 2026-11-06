@@ -39,15 +39,17 @@ final class TimingEngine implements Engine
 }
 
 $total = 0.0;
+// One app for every run (a Laravel app cannot be rebuilt in the same process); the first runs warm it up.
+$app = require __DIR__ . '/../bootstrap/app.php';
+$kernel = $app->make(Kernel::class);
+$app->instance('request', Request::create($path, 'GET'));
+$kernel->bootstrap();
+$resolver = $app['view.engine.resolver'];
+$blade = $resolver->resolve('blade');
+$resolver->register('blade', fn () => new TimingEngine($blade));
 for ($i = 0; $i < $runs; $i++) {
-    $app = require __DIR__ . '/../bootstrap/app.php';
-    $kernel = $app->make(Kernel::class);
     $request = Request::create($path, 'GET');
     $app->instance('request', $request);
-    $kernel->bootstrap();
-    $resolver = $app['view.engine.resolver'];
-    $blade = $resolver->resolve('blade');
-    $resolver->register('blade', fn () => new TimingEngine($blade));
     if ($i === 2) {
         TimingEngine::$own = [];
         TimingEngine::$count = [];
@@ -59,8 +61,11 @@ for ($i = 0; $i < $runs; $i++) {
     if ($i >= 2) {
         $total += (hrtime(true) - $t) / 1e6;
     }
+    if ($response->getStatusCode() !== 200) {
+        echo "status {$response->getStatusCode()}
+";
+    }
     $kernel->terminate($request, $response);
-    $app->flush();
 }
 $measured = $runs - 2;
 arsort(TimingEngine::$own);

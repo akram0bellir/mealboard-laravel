@@ -22,7 +22,7 @@
           <li>
             <a href="{{ $l['href'] }}" @if($l['active']) aria-current="page" @endif
                class="flex h-11 items-center gap-2 rounded-full px-4 text-[15px] whitespace-nowrap transition duration-200 focus-visible:outline-2 focus-visible:outline-lime {{ $l['active'] ? 'bg-lime text-ink' : 'text-mute-dark hover:bg-ink-3 hover:text-page' }}">
-              <x-dynamic-component :component="'lucide-' . $l['icon']" class="size-4" aria-hidden="true" />
+              @icon($l['icon'], 'size-4', ['aria-hidden' => 'true'])
               {{ t($l['label']) }}
               @if ($l['badge'])
                 <span class="inline-flex min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-medium {{ $l['active'] ? 'bg-ink text-lime' : 'bg-lime text-ink' }}"><span class="sr-only">{{ t('Unread:') }} </span>{{ $l['badge'] }}</span>
@@ -74,7 +74,7 @@
         <li>
           <a href="{{ $l['href'] }}" @if($l['active']) aria-current="page" @endif
              class="flex h-11 items-center gap-2 rounded-full px-4 text-[15px] whitespace-nowrap transition duration-200 focus-visible:outline-2 focus-visible:outline-lime {{ $l['active'] ? 'bg-lime text-ink' : 'text-mute-dark hover:bg-ink-3 hover:text-page' }}">
-            <x-dynamic-component :component="'lucide-' . $l['icon']" class="size-4" aria-hidden="true" />
+            @icon($l['icon'], 'size-4', ['aria-hidden' => 'true'])
             {{ t($l['label']) }}
             @if ($l['badge'])
               <span class="inline-flex min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-medium {{ $l['active'] ? 'bg-ink text-lime' : 'bg-lime text-ink' }}"><span class="sr-only">{{ t('Unread:') }} </span>{{ $l['badge'] }}</span>

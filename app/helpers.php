@@ -24,6 +24,17 @@ function t(string $text, array $vars = []): string
     return $out;
 }
 
+/**
+ * A Lucide icon whose name is only known at run time: the same SVG as <x-lucide-...>, without the cost of
+ * <x-dynamic-component> (which compiles a template on every use). Kept in memory for the request.
+ */
+function icon(string $name, string $class = '', array $attributes = []): \Illuminate\Support\HtmlString
+{
+    static $cache = [];
+    $key = $name . '|' . $class . '|' . http_build_query($attributes);
+    return $cache[$key] ??= new \Illuminate\Support\HtmlString(trim(svg('lucide-' . $name, $class, $attributes)->toHtml()));
+}
+
 function is_rtl(): bool
 {
     return app()->getLocale() === 'ar';

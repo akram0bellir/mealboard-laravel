@@ -253,7 +253,7 @@ class DoorApi extends ApiBase
         $pending = max(0, (int) $request->input('pending', 0));
         DB::table('_mealboard_doors')->updateOrInsert(['door' => $door], [
             'name' => mb_substr(is_scalar($request->input('name')) ? (string) $request->input('name') : '', 0, 80),
-            'last_seen' => (int) round(microtime(true) * 1000),
+            'last_seen' => \App\Services\Cron::nowMs(),
             'pending' => $pending,
             'oldest_pending' => $pending > 0 ? (int) $request->input('oldestPendingAt', 0) : null,
             'close_after' => max(0, min(180, (int) $request->input('closeAfterMinutes', 0))),

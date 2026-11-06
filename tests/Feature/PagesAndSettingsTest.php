@@ -8,6 +8,29 @@ use Tests\TestCase;
 
 class PagesAndSettingsTest extends TestCase
 {
+    /* ---- employee pages ---- */
+
+    public function test_an_unread_notification_opens_the_popup_and_counts_in_the_top_bar(): void
+    {
+        $p = $this->person();
+        $this->actingAs($p)->get('/week')->assertOk()->assertDontSee('id="notif-popup-title"', false);
+        \App\Services\Notifier::send([$p->id], 'Popup test', 'Hello there', 'Test');
+        $this->actingAs($p)->get('/week')->assertOk()->assertSee('id="notif-popup-title"', false)->assertSee('Popup test');
+        $this->actingAs($p)->post('/notifications/read');
+        $this->actingAs($p)->get('/week')->assertDontSee('id="notif-popup-title"', false);
+        $this->actingAs($p)->get('/notifications')->assertOk()->assertSee('Popup test');
+    }
+
+    public function test_the_week_page_shows_only_the_two_weeks_but_a_booking_in_them(): void
+    {
+        $p = $this->person();
+        $this->order($p, '2026-11-06', ['dinner']);
+        $this->order($p, '2026-08-01', ['lunch']); // long ago: not loaded
+        $html = $this->actingAs($p)->get('/week')->assertOk()->getContent();
+        $this->assertStringContainsString('name="sel[2026-11-06][dinner]" value="cancel"', $html, 'the booked dinner can be cancelled');
+        $this->assertStringContainsString('name="sel[2026-11-06][lunch]" value="book"', $html);
+    }
+
     /* ---- invoices and statistics: the figures must match the data ---- */
 
     public function test_the_september_invoice_total(): void

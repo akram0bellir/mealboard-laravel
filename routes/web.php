@@ -30,6 +30,10 @@ Route::post('/first-password/cancel', [AuthController::class, 'cancelFirstPasswo
 Route::post('/lang', [LangController::class, 'set']);
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth');
 
+// Control panel for whoever runs the server (not part of the app): own sign-in, own CSRF token (see bootstrap/app.php).
+Route::get('/control', [\App\Http\Controllers\Control\ControlController::class, 'show']);
+Route::post('/control', [\App\Http\Controllers\Control\ControlController::class, 'action']);
+
 // Photos are public, like the PHP API's files route.
 Route::get('/files/{table}/{id}/{name}', [FileController::class, 'show']);
 
@@ -76,6 +80,7 @@ Route::middleware(['auth', 'side:admin', 'admin.page'])->group(function () {
     Route::get('/diners', [DinerController::class, 'index']);
     Route::post('/diners', [DinerController::class, 'store']);
     Route::post('/diners/{id}/remove', [DinerController::class, 'remove']);
+    Route::post('/diners/{id}/served', [DinerController::class, 'served']);
 
     Route::get('/attendance', [AttendanceController::class, 'index']);
     Route::post('/attendance/{id}', [AttendanceController::class, 'toggle']);
@@ -119,6 +124,7 @@ Route::middleware(['auth', 'side:admin', 'admin.page'])->group(function () {
     Route::post('/serve/badge', [ServeController::class, 'badge']);
     Route::post('/serve/person', [ServeController::class, 'person']);
     Route::post('/serve/link', [ServeController::class, 'link']);
+    Route::post('/serve/force', [ServeController::class, 'force']);
     Route::post('/serve/relay/test', [ServeController::class, 'relayTest']);
     Route::post('/serve/relay/choose', [ServeController::class, 'relayChoose']);
 

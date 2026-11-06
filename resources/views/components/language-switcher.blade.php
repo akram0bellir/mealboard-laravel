@@ -3,7 +3,7 @@
 <form method="POST" action="/lang" role="radiogroup" aria-label="{{ t('Language') }}"
       {{ $attributes->merge(['class' => 'flex h-10 items-center gap-0.5 rounded-full p-1 ' . ($dark ? 'bg-ink-3' : 'bg-cream-deep')]) }}>
   @csrf
-  <x-lucide-languages class="mx-1.5 size-4 {{ $dark ? 'text-muted-dark' : 'text-mute' }}" aria-hidden="true" />
+  @icon('languages', 'mx-1.5 size-4 ' . ($dark ? 'text-muted-dark' : 'text-mute'), ['aria-hidden' => 'true'])
   @foreach (MEALBOARD_LANGS as $code => $lang)
     @php $active = app()->getLocale() === $code; @endphp
     <button type="submit" name="lang" value="{{ $code }}" role="radio" aria-checked="{{ $active ? 'true' : 'false' }}"

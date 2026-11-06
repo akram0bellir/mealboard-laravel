@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\BookingRules;
+use App\Services\Bookings;
 use App\Services\Files;
+use App\Services\Standing;
 use App\Services\GateRelay;
 use App\Services\MealTimes;
 use App\Support\Days;
@@ -67,6 +69,35 @@ class ServeController extends Controller
         }
         DB::table('user')->where('id', $person->id)->update(['card_id' => $number, 'updated' => Ids::now()]);
         return $this->page($request, $this->check($person->fresh(), $this->meal($request)) + ['cardNumber' => $number]);
+    }
+
+    /**
+     * Admin override at the door: this person eats whatever the rules say (no booking, paused, account off, late
+     * cancel, already served). The meal is booked if needed, a "missed" mark is cleared (its strike given back),
+     * it is marked served and the gate opens.
+     */
+    public function force(Request $request): View
+    {
+        $person = User::find((string) $request->input('user'));
+        if ($person === null) {
+            return $this->page($request, ['kind' => 'error', 'message' => t("Couldn't check this person. Try again.")]);
+        }
+        $meal = $this->meal($request);
+        $day = Days::today();
+        Bookings::adminAdd($person->id, $day, [$meal]);
+        $order = DB::table('oder')->where('user', $person->id)->where('date', '>=', "$day 00:00:00.000")->where('date', '<=', "$day 23:59:59.999")->first();
+        $again = (int) $order->{'attended_' . $meal} === 1;
+        if ((int) $order->{'no_show_' . $meal} === 1) {
+            Standing::takeBackStrike($person->id);
+        }
+        DB::table('oder')->where('id', $order->id)->update(['attended_' . $meal => 1, 'no_show_' . $meal => 0, 'updated' => Ids::now()]);
+
+        $gate = GateRelay::open();
+        return $this->page($request, [
+            'kind' => 'result', 'person' => $this->personView($person), 'allowed' => true, 'served' => true, 'reason' => t('Booked'),
+            'note' => $again ? t('Let through again by an admin') : t('Served by an admin (override)'),
+            'warning' => $gate['ok'] ? null : t('Meal accepted, but the gate did not open: {error}', ['error' => t($gate['error'])]),
+        ]);
     }
 
     /** "Find relay": try the open message on one COM port. */

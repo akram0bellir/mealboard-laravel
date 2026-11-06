@@ -44,7 +44,7 @@
         <span class="relative flex size-20 items-center justify-center">
           <span aria-hidden="true" class="absolute inset-0 rounded-full animate-ping [animation-iteration-count:2] {{ $ok ? 'bg-page/25' : 'bg-ink/20' }}"></span>
           <span class="relative flex size-20 items-center justify-center rounded-full shadow-lg {{ $ok ? 'bg-page text-booked-ink' : 'bg-ink text-lime' }}">
-            @if ($ok)<x-lucide-check class="size-10" style="stroke-width:3" aria-hidden="true" />@else<x-lucide-x class="size-10" style="stroke-width:3" aria-hidden="true" />@endif
+            @if ($ok)@icon('check', 'size-10', ['style' => 'stroke-width:3;', 'aria-hidden' => 'true'])@else@icon('x', 'size-10', ['style' => 'stroke-width:3;', 'aria-hidden' => 'true'])@endif
           </span>
         </span>
         <p class="text-[40px] leading-none font-semibold tracking-[-0.03em]" data-verdict>{{ $ok ? t('Allowed') : t('Not allowed') }}</p>
@@ -63,7 +63,7 @@
           </div>
         </div>
         <div class="flex flex-wrap gap-2 px-5 pb-5">
-          <span class="flex items-center gap-1.5 rounded-full bg-cream px-3 py-1.5 text-[13px] font-medium"><x-dynamic-component :component="'lucide-' . $icons[$meal]" class="size-3.5" aria-hidden="true" /> {{ $mealLabel }}</span>
+          <span class="flex items-center gap-1.5 rounded-full bg-cream px-3 py-1.5 text-[13px] font-medium">@icon($icons[$meal], 'size-3.5', ['aria-hidden' => 'true']) {{ $mealLabel }}</span>
           @if (!empty($r['groupTime']))<span class="flex items-center gap-1.5 rounded-full bg-cream px-3 py-1.5 text-[13px] font-medium tabular-nums"><x-lucide-clock class="size-3.5" aria-hidden="true" /> {{ $r['groupTime'] }}</span>@endif
           @if ($r['served'])<span class="flex items-center gap-1.5 rounded-full bg-booked px-3 py-1.5 text-[13px] font-medium text-booked-ink"><x-lucide-check class="size-3.5" aria-hidden="true" /> {{ t('Marked served') }}</span>@endif
           @if (!empty($r['note']))<span class="flex items-center gap-1.5 rounded-full bg-ink px-3 py-1.5 text-[13px] font-medium text-page"><x-lucide-info class="size-3.5" aria-hidden="true" /> {{ $r['note'] }}</span>@endif
@@ -75,7 +75,15 @@
             <span class="font-mono text-[17px] font-semibold tabular-nums">{{ $r['cardNumber'] }}</span>
           </div>
         @endif
-        <div class="flex justify-end border-t border-ink/10 px-5 py-3">
+        <div class="flex flex-wrap justify-end gap-2 border-t border-ink/10 px-5 py-3">
+          @if (!$ok)
+            {{-- Admin override: let this person eat anyway (books the meal if needed, marks it served, opens the gate). --}}
+            <form method="POST" action="/serve/force" data-serve-force>
+              @csrf
+              <input type="hidden" name="user" value="{{ $p['id'] }}"><input type="hidden" name="meal" value="{{ $meal }}">
+              <x-admin.btn type="submit" variant="dark" size="sm"><x-lucide-shield-check aria-hidden="true" /> {{ t('Serve anyway') }}</x-admin.btn>
+            </form>
+          @endif
           <x-admin.btn variant="soft" size="sm" data-print-ticket data-name="{{ $p['name'] }}" data-department="{{ $p['department'] }}" data-meal="{{ $mealLabel }}"><x-lucide-printer aria-hidden="true" /> {{ t('Print ticket') }}</x-admin.btn>
         </div>
       </div>

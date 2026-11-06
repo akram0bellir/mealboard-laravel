@@ -361,6 +361,14 @@ document.querySelectorAll('[data-serve]').forEach((root) => {
       slot.innerHTML = idle;
     }
   });
+  // "Serve anyway" (admin override): answered in place too, so scanning keeps running.
+  slot.addEventListener('submit', (e) => {
+    const form = e.target.closest('[data-serve-force]');
+    if (form) {
+      e.preventDefault();
+      post('/serve/force', { user: form.elements.user.value });
+    }
+  });
 });
 
 // Serve: the 80 mm meal ticket, printed from a small window.

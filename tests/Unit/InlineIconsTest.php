@@ -49,4 +49,14 @@ class InlineIconsTest extends TestCase
         $this->assertStringContainsString('<svg aria-hidden="true" class="size-4"', $html);
         $this->assertStringNotContainsString('x-lucide', $html);
     }
+
+    /** The real compiler must inline them (a hook in the wrong place would leave the component call). */
+    public function test_compiled_views_contain_the_svg_not_a_component_call(): void
+    {
+        $php = Blade::compileString('<span><x-lucide-check class="size-4" aria-hidden="true" /></span>');
+        $this->assertStringContainsString('<svg aria-hidden="true" class="size-4"', $php);
+        $this->assertStringNotContainsString('Svg', $php, 'no blade-icons component is created at run time');
+        $page = Blade::compileString(file_get_contents(resource_path('views/components/week/day-card.blade.php')));
+        $this->assertStringNotContainsString('lucide', strtolower(preg_replace('/<svg.*?<\/svg>/s', '', $page)), 'every icon of the day card is plain SVG or @icon');
+    }
 }

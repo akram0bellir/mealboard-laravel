@@ -15,8 +15,8 @@ class WeekPage
         $now = Days::now();
         $plan = MealPlan::for($user, $rules);
         $standing = Standing::read($user, true, $rules);
-        [$bookings] = Bookings::forUser($user->id);
         $days = $rules->upcomingDays($now);
+        [$bookings] = Bookings::forUser($user->id, Days::key($days[0])); // only the two weeks shown, not the whole history
         $menu = self::menu(Days::key($days[0]), Days::key($days[13]));
         $mealTimes = MealTimes::for($user, $plan['meals'], $rules);
 

@@ -52,7 +52,7 @@
           <input type="checkbox" form="week-form" class="sr-only" name="sel[{{ $card['key'] }}][{{ $meal }}]" value="{{ $selected ? 'cancel' : 'book' }}">
         @endif
         <span class="flex w-full items-center gap-2">
-          <x-dynamic-component :component="'lucide-' . $icons[$meal]" class="size-4 shrink-0" aria-hidden="true" />
+          @icon($icons[$meal], 'size-4 shrink-0', ['aria-hidden' => 'true'])
           <span class="shrink-0 text-start">{{ $label }}</span>
           <span dir="auto" class="min-w-0 flex-1 truncate text-start text-[13px] opacity-70">{{ $dishText }}</span>
           @if ($interactive)

@@ -139,7 +139,7 @@ class WeekController extends Controller
     /** The meals to cancel: the "meals" field (comma list) or, when it is empty, everything booked that day. */
     private function mealsParam(Request $request, string $date): array
     {
-        [$bookings] = Bookings::forUser($request->user()->id);
+        [$bookings] = Bookings::forUser($request->user()->id, $date);
         $booked = $bookings[$date] ?? [];
         $asked = array_filter(explode(',', (string) $request->input('meals', '')));
         $meals = $asked === [] ? $booked : array_values(array_intersect($booked, $asked));
@@ -151,7 +151,7 @@ class WeekController extends Controller
         $user = $request->user();
         $rules = BookingRules::current();
         $plan = MealPlan::for($user, $rules);
-        [$bookings] = Bookings::forUser($user->id);
+        [$bookings] = Bookings::forUser($user->id, \App\Support\Days::key($rules->upcomingDays(\App\Support\Days::now())[0]));
         $times = MealTimes::for($user, $plan['meals'], $rules);
         $timeOf = fn (string $meal) => isset($times[$meal]) ? ' · ' . t('your time {time}', ['time' => $times[$meal]]) : '';
 
