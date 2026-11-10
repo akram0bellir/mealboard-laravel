@@ -11,12 +11,12 @@
 
 @if ($super)
   {{-- Super admin: a sidebar on wide screens (the top bar below is used on phones and tablets). --}}
-  <aside class="fixed inset-y-6 start-6 z-20 hidden w-60 flex-col gap-4 overflow-y-auto rounded-[32px] bg-ink p-3 text-page lg:flex print:hidden">
+  <aside class="fixed inset-y-6 start-6 z-20 hidden w-60 flex-col gap-4 rounded-[32px] bg-ink p-3 text-page lg:flex print:hidden">
     <a href="/admin" class="flex items-center gap-3 rounded-full py-1 pe-4 ps-1 focus-visible:outline-2 focus-visible:outline-lime">
       <span class="inline-flex size-11 items-center justify-center rounded-full bg-lime text-ink" aria-hidden="true"><x-lucide-utensils class="size-5" /></span>
       <span class="text-[15px] font-medium leading-tight">{{ t('Mealboard') }}<span class="block text-[12px] font-normal text-mute-dark">{{ t('Super admin') }}</span></span>
     </a>
-    <nav aria-label="{{ t('Main') }}" class="flex-1">
+    <nav aria-label="{{ t('Main') }}" class="no-scrollbar -mx-1 min-h-0 flex-1 overflow-y-auto px-1">
       <ul class="flex flex-col gap-1">
         @foreach ($links(true) as $l)
           <li>
@@ -68,7 +68,7 @@
     </div>
   </div>
 
-  <nav aria-label="{{ $super ? t('Main (compact)') : t('Main') }}" class="-mx-1 mt-3 overflow-x-auto px-1 pb-1">
+  <nav aria-label="{{ $super ? t('Main (compact)') : t('Main') }}" class="no-scrollbar -mx-1 mt-3 overflow-x-auto px-1 pb-1">
     <ul class="flex items-center gap-1">
       @foreach ($links(false) as $l)
         <li>
