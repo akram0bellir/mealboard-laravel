@@ -5,9 +5,12 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\BookingRules;
+use App\Services\Departments;
 use App\Services\Files;
 use App\Services\MealTimes;
 use App\Services\Standing;
+use App\Services\UserImport;
+use App\Support\TableReader;
 use App\Support\Days;
 use App\Support\Ids;
 use App\Support\Roles;
@@ -23,8 +26,6 @@ use Illuminate\View\View;
  */
 class UserController extends Controller
 {
-    private const DEPARTMENTS = ['1', '2', '3'];
-
     private const MEALS = ['breakfast' => 'Breakfast', 'lunch' => 'Lunch', 'dinner' => 'Dinner'];
 
     public function index(Request $request): View
@@ -38,20 +39,14 @@ class UserController extends Controller
         $groups = MealTimes::groups();
         $deptRows = DB::table('department_rules')->get()->keyBy('department');
 
-        $rows = $all->map(function ($u) use ($groups, $deptRows, $rules) {
-            $standing = Standing::read($u, false, $rules);
-            $group = $u->Lunch ? MealTimes::resolve(null, $u, 'lunch', $deptRows->get($u->Department), $groups) : null;
-            $own = trim((string) $u->lunch_group) !== '' && $group && $group->id === $u->lunch_group;
-            return [
-                'u' => $u,
-                'name' => trim($u->firstname . ' ' . $u->lastname) ?: (string) $u->email,
-                'role' => Roles::normalize($u->User_Type),
-                'protected' => Roles::isProtected($u->User_Type),
-                'standing' => $standing,
-                'periodEnd' => $standing['period_start'] !== '' ? Days::add($standing['period_start'], $rules->periodDays) : '',
-                'lunch' => $group ? "{$group->start}–{$group->end}" . ($own ? ' · ' . t('own') : '') : '',
-            ];
-        });
+        // Cheap fields for everyone (needed to filter and sort); the lunch slot is worked out below, for the shown page only.
+        $rows = $all->map(fn ($u) => [
+            'u' => $u,
+            'name' => trim($u->firstname . ' ' . $u->lastname) ?: (string) $u->email,
+            'role' => Roles::normalize($u->User_Type),
+            'protected' => Roles::isProtected($u->User_Type),
+            'standing' => Standing::read($u, false, $rules),
+        ]);
 
         $words = array_filter(preg_split('/\s+/', mb_strtolower($q)));
         $visible = $rows->filter(function ($r) use ($status, $words) {
@@ -64,6 +59,89 @@ class UserController extends Controller
             }
             $haystack = mb_strtolower(implode(' ', [$r['name'], $r['u']->email, $r['u']->username, $r['u']->Department, $r['u']->Position]));
             return collect($words)->every(fn ($w) => str_contains($haystack, $w));
+        })->values();
+
+        // Column filters, Excel style: each column header edits some of these query parameters, so a filtered
+        // list can be bookmarked or shared.
+        $pick = fn (string $key, array $allowed, string $default = '') => in_array((string) $request->query($key, $default), $allowed, true) ? (string) $request->query($key, $default) : $default;
+        $departmentNames = Departments::names();
+        $chosen = array_values(array_filter(array_map('strval', (array) $request->query('department', [])), fn ($v) => $v !== ''));
+        $filters = [
+            'department' => array_values(array_intersect($chosen, array_merge($departmentNames, ['__none__']))),
+            'position_q' => trim((string) $request->query('position_q', '')),
+            'role' => $pick('role', ['employee', 'responsible', 'intern', 'manager', 'admin', 'super_admin', 'door']),
+            'strikes' => $pick('strikes', ['any', 'clean', 'blocked']),
+            'card' => $pick('card', ['with', 'without']),
+            'empid' => $pick('empid', ['with', 'without']),
+            'breakfast' => $pick('breakfast', ['yes', 'no']),
+            'lunch' => $pick('lunch', ['yes', 'no']),
+            'dinner' => $pick('dinner', ['yes', 'no']),
+            'multiple' => $pick('multiple', ['yes', 'no']),
+            'sort' => $pick('sort', ['name', 'name_desc', 'department', 'department_desc', 'position', 'position_desc', 'strikes', 'strikes_asc', 'newest'], 'name'),
+            'per' => $pick('per', ['25', '50', '100', 'all'], '50'),
+        ];
+        $advanced = collect($filters)->except(['sort', 'per'])->filter(fn ($v) => $v !== '' && $v !== [])->count();
+        $today = Days::today();
+        $wantedDepartments = array_map('mb_strtolower', $filters['department']);
+        $visible = $visible->filter(function ($r) use ($filters, $today, $wantedDepartments) {
+            $u = $r['u'];
+            if ($wantedDepartments !== []) {
+                $dept = mb_strtolower(trim((string) $u->Department));
+                if (!in_array($dept === '' ? '__none__' : $dept, $wantedDepartments, true)) {
+                    return false;
+                }
+            }
+            if ($filters['position_q'] !== '' && mb_stripos((string) $u->Position, $filters['position_q']) === false) {
+                return false;
+            }
+            if ($filters['role'] !== '' && $r['role'] !== $filters['role']) {
+                return false;
+            }
+            foreach (['breakfast' => 'Breakfast', 'lunch' => 'Lunch', 'dinner' => 'Dinner', 'multiple' => 'multiple_meals'] as $key => $column) {
+                $on = (int) $u->{$column} === 1;
+                if (($filters[$key] === 'yes' && !$on) || ($filters[$key] === 'no' && $on)) {
+                    return false;
+                }
+            }
+            $strikes = (int) $r['standing']['strikes'];
+            $blocked = $r['standing']['blocked_until'] !== '' && $r['standing']['blocked_until'] > $today;
+            if (($filters['strikes'] === 'any' && $strikes === 0) || ($filters['strikes'] === 'clean' && $strikes > 0) || ($filters['strikes'] === 'blocked' && !$blocked)) {
+                return false;
+            }
+            foreach (['card' => 'card_id', 'empid' => 'id_user'] as $key => $column) {
+                $has = (int) $u->{$column} > 0;
+                if (($filters[$key] === 'with' && !$has) || ($filters[$key] === 'without' && $has)) {
+                    return false;
+                }
+            }
+            return true;
+        })->values();
+        $byDept = fn ($r) => mb_strtolower(trim((string) $r['u']->Department)) . '|' . mb_strtolower($r['name']);
+        $byPosition = fn ($r) => mb_strtolower(trim((string) $r['u']->Position)) . '|' . mb_strtolower($r['name']);
+        $visible = match ($filters['sort']) {
+            'name_desc' => $visible->sortByDesc(fn ($r) => mb_strtolower($r['name']), SORT_NATURAL)->values(),
+            'department' => $visible->sortBy($byDept, SORT_NATURAL)->values(),
+            'department_desc' => $visible->sortByDesc($byDept, SORT_NATURAL)->values(),
+            'position' => $visible->sortBy($byPosition, SORT_NATURAL)->values(),
+            'position_desc' => $visible->sortByDesc($byPosition, SORT_NATURAL)->values(),
+            'strikes' => $visible->sortByDesc(fn ($r) => (int) $r['standing']['strikes'])->values(),
+            'strikes_asc' => $visible->sortBy(fn ($r) => (int) $r['standing']['strikes'])->values(),
+            'newest' => $visible->sortByDesc(fn ($r) => (string) $r['u']->created)->values(),
+            default => $visible,
+        };
+
+        // Pages: a thousand rows at once is slow to draw and hard to scan.
+        $matches = $visible->count();
+        $per = $filters['per'] === 'all' ? max(1, $matches) : (int) $filters['per'];
+        $pages = max(1, (int) ceil($matches / $per));
+        $page = max(1, min($pages, (int) $request->query('page', 1)));
+        $visible = $visible->forPage($page, $per)->map(function ($r) use ($groups, $deptRows, $rules) {
+            $u = $r['u'];
+            $group = $u->Lunch ? MealTimes::resolve(null, $u, 'lunch', $deptRows->get($u->Department), $groups) : null;
+            $own = trim((string) $u->lunch_group) !== '' && $group && $group->id === $u->lunch_group;
+            $r['periodEnd'] = $r['standing']['period_start'] !== '' ? Days::add($r['standing']['period_start'], $rules->periodDays) : '';
+            $r['lunch'] = $group ? "{$group->start}–{$group->end}" . ($own ? ' · ' . t('own') : '') : '';
+            return $r;
         })->values();
 
         $dialog = null;
@@ -80,7 +158,7 @@ class UserController extends Controller
             $dialog = $edit ? 'delete' : null;
         }
 
-        $deptMeals = collect(self::DEPARTMENTS)->mapWithKeys(function ($d) use ($deptRows) {
+        $deptMeals = collect($departmentNames)->mapWithKeys(function ($d) use ($deptRows) {
             $row = $deptRows->get($d);
             return [$d => $row
                 ? ['breakfast' => (int) $row->breakefast === 1, 'lunch' => (int) $row->lunch === 1, 'dinner' => (int) $row->dinner === 1]
@@ -90,6 +168,11 @@ class UserController extends Controller
         return view('admin.users', [
             'rules' => $rules,
             'rows' => $visible,
+            'matches' => $matches,
+            'filters' => $filters,
+            'advanced' => $advanced,
+            'page' => $page,
+            'pages' => $pages,
             'total' => $all->count(),
             'active' => $all->where('Status', 1)->count(),
             'strikes' => $all->sum('Strikes'),
@@ -99,7 +182,7 @@ class UserController extends Controller
             'myId' => $me->id,
             'dialog' => $dialog,
             'edit' => $edit,
-            'departments' => self::DEPARTMENTS,
+            'departments' => Departments::names(),
             'deptMeals' => $deptMeals,
             'groups' => $groups->values(),
             'deptGroups' => $deptRows,
@@ -176,6 +259,13 @@ class UserController extends Controller
     {
         $text = (string) $request->input('list');
         if ($file = $request->file('file')) {
+            $name = $file->getClientOriginalName();
+            $ext = TableReader::extension($name);
+            // A spreadsheet is always the column-named import; a text file only when its first line names the columns.
+            $named = in_array($ext, ['csv', 'tsv', 'txt'], true) && preg_match('/user_name|prenom/i', TableReader::firstLine($file->getRealPath()));
+            if (in_array($ext, ['xlsx', 'xlsm', 'ods'], true) || $named) {
+                return redirect('/users')->with('users_imported', UserImport::sheet($file->getRealPath(), false, $name));
+            }
             $text .= "\n" . file_get_contents($file->getRealPath());
         }
 
@@ -194,7 +284,7 @@ class UserController extends Controller
             $reason = match (true) {
                 $first === '' || $last === '' || $email === '' || $position === '' => 'Needs first name, last name, email, department, position',
                 !filter_var($email, FILTER_VALIDATE_EMAIL) => "Invalid email \"{$email}\"",
-                $department !== '' && !in_array($department, self::DEPARTMENTS, true) => 'Department must be one of ' . implode(', ', self::DEPARTMENTS),
+                $department !== '' && !in_array($department, Departments::names(), true) => 'Department must be one of ' . implode(', ', Departments::names()),
                 isset($taken[$key]) => "Duplicate email \"{$email}\"",
                 default => null,
             };
@@ -203,7 +293,7 @@ class UserController extends Controller
                 continue;
             }
             $taken[$key] = true;
-            $department = $department ?: self::DEPARTMENTS[0];
+            $department = $department ?: Departments::names()[0];
             $meals = $this->mealsOf($deptRows->get($department));
             $this->insertUser([
                 'firstname' => $first, 'lastname' => $last, 'email' => $key, 'Department' => $department, 'Position' => $position,
@@ -257,7 +347,7 @@ class UserController extends Controller
         if ($email === '' && $username === '' && !($user && (string) $user->email !== '')) {
             $errors['email'] = 'Add an email or a username: the person signs in with one of them.';
         }
-        if (!in_array($department, self::DEPARTMENTS, true)) {
+        if (!in_array($department, Departments::names(), true)) {
             $errors['department'] = 'Pick a department.';
         }
         if ($user === null && $password === '') {
@@ -328,29 +418,14 @@ class UserController extends Controller
         return redirect('/users#u-' . $id)->with('users_flash', $user ? "{$name} was updated." : "{$name} was created.");
     }
 
-    /** Inserts an account with every column filled; returns its id. */
-    private function insertUser(array $data, string $password): string
+    private function insertUser(array $data, string $password, ?int $rounds = null): string
     {
-        $id = Ids::new();
-        $now = Ids::now();
-        DB::table('user')->insert($data + [
-            'id' => $id,
-            'password' => Hash::make($password),
-            'tokenKey' => bin2hex(random_bytes(15)),
-            'Strikes' => 0,
-            'multiple_meals' => 0,
-            'sex' => 0,
-            'created' => $now,
-            'updated' => $now,
-        ]);
-        return $id;
+        return UserImport::insertUser($data, $password, $rounds);
     }
 
     private function mealsOf(?object $row): array
     {
-        return $row
-            ? ['breakfast' => (int) $row->breakefast === 1, 'lunch' => (int) $row->lunch === 1, 'dinner' => (int) $row->dinner === 1]
-            : ['breakfast' => false, 'lunch' => true, 'dinner' => false];
+        return UserImport::mealsOf($row);
     }
 
     /** Only the super admin may switch off or delete a manager, admin, super admin or door account. */

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Services\BookingRules;
+use App\Services\Departments;
 use App\Services\ManagerMeals;
 use App\Services\MealTimes;
 use App\Services\Notifier;
@@ -24,8 +25,6 @@ use Illuminate\View\View;
  */
 class SettingsController extends Controller
 {
-    private const DEPARTMENTS = ['1', '2', '3'];
-
     private const PRICE_COLUMNS = [
         'breakfast' => 'brakfast', 'lunch' => 'lunch', 'dinner' => 'dinner',
         'enhanced' => 'Enhanced_meal', 'vip' => 'vip', 'special' => 'Special_meal', 'snacks' => 'Snacks', 'vip_snacks' => 'VIP_snacks',
@@ -70,7 +69,8 @@ class SettingsController extends Controller
             'groups' => $groups,
             'groupCounts' => $groupCounts,
             'deptRows' => $deptRows,
-            'departments' => self::DEPARTMENTS,
+            'departments' => Departments::names(),
+            'deptCounts' => DB::table('user')->selectRaw('Department, COUNT(*) AS n')->groupBy('Department')->pluck('n', 'Department'),
             'openLunch' => $rules->ramadan ? $this->openLunch()->count() : 0,
             'smtp' => $smtp,
             'daily' => $daily,
@@ -249,24 +249,53 @@ class SettingsController extends Controller
         $this->superOnly($request);
         $card = $request->input('card') === 'departments' ? 'departments' : 'times';
         $groups = DB::table('meal_groups')->pluck('meal', 'id');
-        foreach (self::DEPARTMENTS as $d) {
+        // Fields are keyed by the department row's id: names can hold dots or brackets.
+        foreach (DB::table('department_rules')->get() as $row) {
             $data = ['updated' => Ids::now()];
             if ($card === 'departments') {
                 foreach (['breakefast' => 'breakfast', 'lunch' => 'lunch', 'dinner' => 'dinner'] as $column => $meal) {
-                    $data[$column] = $request->boolean("meals.{$d}.{$meal}") ? 1 : 0;
+                    $data[$column] = $request->boolean("meals.{$row->id}.{$meal}") ? 1 : 0;
                 }
             } else {
                 foreach (BookingRules::MEALS as $meal) {
-                    $g = (string) $request->input("groups.{$d}.{$meal}");
+                    $g = (string) $request->input("groups.{$row->id}.{$meal}");
                     $data["{$meal}_group"] = $g !== '' && $groups->has($g) && MealTimes::mealOf((string) $groups[$g]) === $meal ? $g : null;
                 }
             }
-            $row = DB::table('department_rules')->where('department', $d)->first();
-            $row
-                ? DB::table('department_rules')->where('id', $row->id)->update($data)
-                : DB::table('department_rules')->insert($data + ['id' => Ids::new(), 'department' => $d, 'created' => Ids::now()]);
+            DB::table('department_rules')->where('id', $row->id)->update($data);
         }
         return $this->back($card, $card === 'departments' ? 'Saved. New users from these departments start with these meals.' : 'Saved.');
+    }
+
+    /** Add a department to the list (users store its name as text). */
+    public function addDepartment(Request $request): RedirectResponse
+    {
+        $this->superOnly($request);
+        $name = Departments::clean((string) $request->input('name'));
+        if ($name === '') {
+            return $this->back('department-list', 'Type a department name.', false);
+        }
+        if (DB::table('department_rules')->where('department', $name)->exists()) {
+            return $this->back('department-list', "“{$name}” is already in the list.", false);
+        }
+        Departments::ensure($name);
+        return $this->back('department-list', "Added “{$name}”.");
+    }
+
+    /** Remove a department from the list, only when nobody is in it. */
+    public function deleteDepartment(Request $request, string $id): RedirectResponse
+    {
+        $this->superOnly($request);
+        $row = DB::table('department_rules')->where('id', $id)->first();
+        if (!$row) {
+            return $this->back('department-list', 'That department no longer exists.', false);
+        }
+        $count = DB::table('user')->where('Department', $row->department)->count();
+        if ($count > 0) {
+            return $this->back('department-list', "“{$row->department}” still has {$count} " . ($count === 1 ? 'person' : 'people') . '. Move them to another department first.', false);
+        }
+        DB::table('department_rules')->where('id', $id)->delete();
+        return $this->back('department-list', "Removed “{$row->department}”.");
     }
 
     public function smtp(Request $request): RedirectResponse

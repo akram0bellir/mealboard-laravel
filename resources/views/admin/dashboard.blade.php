@@ -91,7 +91,7 @@
               @foreach (['breakfast', 'lunch', 'dinner'] as $type)
                 <div class="flex justify-between">
                   <dt class="{{ $isToday ? 'text-mute-dark' : 'text-mute' }}">{{ t($labels[$type]) }}</dt>
-                  <dd class="font-medium">{{ $meals[$type]['name'] ? $meals[$type]['bookings'] + $meals[$type]['manager'] : '–' }}</dd>
+                  <dd class="font-medium">{{ $meals[$type]['name'] || $meals[$type]['bookings'] > 0 ? $meals[$type]['bookings'] + $meals[$type]['manager'] : '–' }}</dd>
                 </div>
               @endforeach
               @if ($managerTotal)

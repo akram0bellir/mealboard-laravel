@@ -20,8 +20,6 @@ class StatsItems
     /** Below this many meals a value is shown but marked as "small sample". */
     public const SMALL_SAMPLE_MEALS = 10;
 
-    public const DEPARTMENTS = ['1', '2', '3'];
-
     /** key => [label, goodWhenHigh, unit]. */
     public const METRICS = [
         'meals' => ['Meals booked', null, 'count'],

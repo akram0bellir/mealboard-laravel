@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Services\BookingRules;
+use App\Services\Departments;
 use App\Services\Notifier;
 use App\Support\Days;
 use Carbon\CarbonImmutable;
@@ -15,8 +16,6 @@ use Illuminate\View\View;
 /** Admin: send a notification to everyone, a department, the people booked on a meal, or one person. */
 class NotifyController extends Controller
 {
-    private const DEPARTMENTS = ['1', '2', '3'];
-
     public function index(Request $request): View
     {
         $sent = DB::table('notifications')->orderByDesc('created')->limit(100)->get()->map(fn ($n) => [
@@ -41,7 +40,7 @@ class NotifyController extends Controller
             'sent' => $sent,
             'users' => $users,
             'q' => $q,
-            'departments' => self::DEPARTMENTS,
+            'departments' => Departments::names(),
             'rules' => BookingRules::current(),
             'today' => Days::today(),
         ]);

@@ -70,6 +70,11 @@ class ControlController extends Controller
             return $this->json(['status' => $e->status, 'message' => $e->getMessage()], $e->status);
         }
 
+        if ($file = $request->file('file')) {
+            $body['_file'] = $file->getRealPath();
+            $body['_filename'] = $file->getClientOriginalName();
+        }
+
         $actions = new ControlActions((string) $request->session()->get('ctl_name', ''));
         $logged = !in_array($action, ControlActions::READ_ACTIONS, true);
         try {

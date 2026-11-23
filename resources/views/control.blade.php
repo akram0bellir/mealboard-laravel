@@ -37,6 +37,7 @@
     <button data-tab="health" class="active">Health</button>
     <button data-tab="cron">Cron</button>
     <button data-tab="inject">Inject data</button>
+    <button data-tab="import">Import</button>
     <button data-tab="tables">Tables</button>
     <button data-tab="email">E-mail &amp; doors</button>
     <button data-tab="activity">Activity</button>
@@ -211,6 +212,73 @@
 </section>
 
 <!-- TABLES -->
+<!-- IMPORT -->
+<section data-panel="import" hidden>
+  <div class="bar">
+    <h2>Import</h2>
+    <span class="muted">Table files (.xlsx, .ods, .csv, .tsv, .txt) into the database <b>{{ $database }}</b></span>
+  </div>
+  <p class="alert warn">These write <b>real data</b>, not test data. "Preview" reads the file and tells you what would happen without saving anything; "Import now" saves it. Import the users first, then the menu and the reservations.</p>
+
+  <div class="grid2">
+    <form class="card stack" data-upload="import_users" data-out="import-out" data-confirm="This creates the users in the REAL database (it can take a couple of minutes). Continue?">
+      <h3>1. Users</h3>
+      <p class="muted">Same columns in any file type; the first row holds the column names. Text files can use , ; tab or | and UTF-8 or Windows encoding. Columns: <code>immatricule, nom, prenom, n_carte, dept, poste, user_name, PW</code>. New departments are added to the list, passwords are stored hashed, everyone starts as an employee. A username that already exists is skipped.</p>
+      <label>File (.xlsx, .ods, .csv, .tsv, .txt)<input type="file" name="file" accept=".xlsx,.xlsm,.ods,.csv,.tsv,.txt" required></label>
+      <div class="buttons">
+        <button type="submit" name="mode" value="preview">Preview (saves nothing)</button>
+        <button class="primary" type="submit" name="mode" value="import">Import users now</button>
+      </div>
+    </form>
+
+    <form class="card stack" data-upload="import_reservations" data-out="import-out" data-confirm="This writes the reservations to the REAL database. Continue?">
+      <h3>2. Reservations</h3>
+      <p class="muted">Columns: <code>date resrvation, nom, prenom, n carte, is bloquer, gouter, etat gouter, dej, etat dej, diner, etat diner</code>. People are matched by card number, then by name. A booking that already exists that day is completed, never duplicated.</p>
+      <label>File (.xlsx, .ods, .csv, .tsv, .txt)<input type="file" name="file" accept=".xlsx,.xlsm,.ods,.csv,.tsv,.txt" required></label>
+      <div class="buttons">
+        <button type="submit" name="mode" value="preview">Preview (saves nothing)</button>
+        <button class="primary" type="submit" name="mode" value="import">Import reservations now</button>
+      </div>
+    </form>
+
+    <form class="card stack" data-upload="import_menu" data-out="import-out" data-confirm="This writes the menu to the REAL database. Continue?">
+      <h3>3. Menu (meals)</h3>
+      <p class="muted">One dish per day, same as the Meals page. Columns: <code>date</code>, the dish (<code>menu_en</code>, <code>title</code> or <code>menu</code>), optional <code>menu_ar</code> / <code>description</code>, optional <code>meal</code> per row. A slot that already has a dish is kept unless you tick "Replace".</p>
+      <label>File (.xlsx, .ods, .csv, .tsv, .txt)<input type="file" name="file" accept=".xlsx,.xlsm,.ods,.csv,.tsv,.txt" required></label>
+      <label>Meal for rows without a "meal" column
+        <select name="meal"><option value="lunch" selected>Lunch</option><option value="breakfast">Breakfast (snack)</option><option value="dinner">Dinner</option></select>
+      </label>
+      <label class="check"><input type="checkbox" name="replace"> Replace dishes already on the menu</label>
+      <div class="buttons">
+        <button type="submit" name="mode" value="preview">Preview (saves nothing)</button>
+        <button class="primary" type="submit" name="mode" value="import">Import menu now</button>
+      </div>
+    </form>
+
+    <form class="card stack" data-upload="import_table" data-out="import-out" data-confirm="This writes the rows to the REAL database. Continue?" id="import-table-form" data-tables="{{ json_encode(\App\Services\TableImport::describe()) }}">
+      <h3>4. Any table from the old app</h3>
+      <p class="muted">Pick the table, then upload its export as a file whose first row holds the <b>column names</b> of the old database. Unknown columns are ignored. A row that already exists is skipped (or updated if you tick it). Optional <code>id</code>, <code>created</code>, <code>updated</code> columns keep the old ids and dates. In link columns (<code>user</code>…) a person can be an id, username, e-mail, card number or "first last".</p>
+      <label>Table
+        <select name="table" id="import-table-pick" required>
+          @foreach (array_keys(\App\Services\TableImport::KEYS) as $t)
+            <option value="{{ $t }}">{{ $t }}</option>
+          @endforeach
+        </select>
+      </label>
+      <p class="muted">Columns: <code id="import-table-cols"></code><br>Same row means: <code id="import-table-key"></code></p>
+      <label class="check"><input type="checkbox" name="update"> Update rows that already exist (instead of skipping them)</label>
+      <label>File (.csv, .tsv, .txt, .xlsx, .ods)<input type="file" name="file" accept=".xlsx,.xlsm,.ods,.csv,.tsv,.txt" required></label>
+      <div class="buttons">
+        <button type="button" id="import-table-template">Download empty CSV</button>
+        <button type="submit" name="mode" value="preview">Preview (saves nothing)</button>
+        <button class="primary" type="submit" name="mode" value="import">Import table now</button>
+      </div>
+    </form>
+  </div>
+
+  <pre id="import-out" class="out" hidden></pre>
+</section>
+
 <section data-panel="tables" class="tb" hidden>
   <aside class="tb-side">
     <label class="tb-filter"><i class="ri ri-search"></i><input id="tb-filter" placeholder="Search tables" autocomplete="off"></label>

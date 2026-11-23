@@ -107,6 +107,11 @@ class ControlRows
             'date' => ['meal_date', 'created', 'updated'], 'json' => [], 'hidden' => [],
             'write' => ['title', 'message', 'picter', 'user', 'meal_date', 'meal', 'read', 'reply'],
         ],
+        'day_info' => [
+            'bool' => [], 'int' => [], 'float' => ['brakfast', 'lunch', 'dinner', 'Guest_meal', 'vip', 'Sandwich'],
+            'date' => ['day', 'created', 'updated'], 'json' => ['relation'], 'hidden' => [],
+            'write' => ['brakfast', 'lunch', 'dinner', 'Guest_meal', 'vip', 'Sandwich', 'day', 'relation'],
+        ],
         'smtp' => [
             'bool' => [], 'int' => [], 'float' => [],
             'date' => ['created', 'updated'], 'json' => [], 'hidden' => ['Password'],

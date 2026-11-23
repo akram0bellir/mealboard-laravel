@@ -8,12 +8,15 @@ use App\Services\Cron;
 use App\Services\DayOrders;
 use App\Services\Mailer;
 use App\Services\MealTimes;
+use App\Services\Menu;
 use App\Services\Settings;
 use App\Services\Standing;
+use App\Services\UserImport;
 use App\Support\ControlRows;
 use App\Support\Days;
 use App\Support\Ids;
 use App\Support\Roles;
+use App\Support\TableReader;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
@@ -81,6 +84,10 @@ class ControlActions
 
             'inject_users' => $this->injectUsers($b),
             'inject_bookings' => $this->injectBookings($b),
+            'import_reservations' => $this->importReservations($b),
+            'import_users' => $this->importUsers($b),
+            'import_menu' => $this->importMenu($b),
+            'import_table' => $this->importTable($b),
             'inject_door' => $this->injectDoor($b),
             'inject_heartbeat' => $this->injectHeartbeat($b),
             'inject_row' => $this->injectRow($b),
@@ -706,6 +713,302 @@ class ControlActions
         }
         $this->track('oder', $ids);
         return ['created' => $created, 'mergedIntoExisting' => $merged, 'people' => count($users)];
+    }
+
+    /** Any table from the old app, from a file whose first row holds the column names (see TableImport). */
+    private function importTable(array $b): array
+    {
+        $path = (string) ($b['_file'] ?? '');
+        if ($path === '' || !TableReader::supports((string) ($b['_filename'] ?? ''))) {
+            self::fail(400, 'Choose a .csv, .tsv, .txt, .xlsx or .ods file.');
+        }
+        try {
+            return \App\Services\TableImport::run((string) ($b['table'] ?? ''), $path, (string) $b['_filename'], !empty($b['dry']), !empty($b['update']));
+        } catch (\InvalidArgumentException|\RuntimeException $e) {
+            self::fail(400, $e->getMessage());
+        }
+    }
+
+    /**
+     * Import the menu (one dish per day) from a table file. Columns (first row = names):
+     *   date                         required (2026-11-18, or an Excel date)
+     *   menu_en | title | menu | ...  the dish name (menu_full is used when it is empty)
+     *   menu_ar | description         optional second line
+     *   meal                          optional per row: breakfast/gouter, lunch/dej, dinner/diner
+     * The form's "Meal" is used for rows without one. A slot that already has a dish is kept unless "replace".
+     * Writes the same `meun` rows as the Meals page. Real data, one transaction.
+     */
+    private function importMenu(array $b): array
+    {
+        $path = (string) ($b['_file'] ?? '');
+        if ($path === '' || !TableReader::supports((string) ($b['_filename'] ?? ''))) {
+            self::fail(400, 'Choose a .xlsx, .ods, .csv, .tsv or .txt file.');
+        }
+        try {
+            $rows = TableReader::rows($path, (string) $b['_filename']);
+        } catch (\RuntimeException $e) {
+            self::fail(400, $e->getMessage());
+        }
+        if ($rows === []) {
+            self::fail(400, 'The sheet is empty.');
+        }
+        $headRow = array_key_first($rows);
+        $col = [];
+        foreach ($rows[$headRow] as $i => $h) {
+            $col[mb_strtolower(trim(str_replace("\u{FEFF}", '', $h)))] = $i;
+        }
+        $find = function (array $names) use ($col): ?int {
+            foreach ($names as $n) {
+                if (isset($col[$n])) {
+                    return $col[$n];
+                }
+            }
+            return null;
+        };
+        $dateCol = $find(['date', 'date reservation', 'date resrvation', 'jour']);
+        $nameCol = $find(['menu_en', 'title', 'name', 'menu', 'dish', 'plat', 'nom']);
+        $fullCol = $find(['menu_full']);
+        $descCol = $find(['menu_ar', 'description', 'desc']);
+        $mealCol = $find(['meal', 'repas']);
+        if ($dateCol === null || ($nameCol === null && $fullCol === null)) {
+            self::fail(400, 'Missing columns: need "date" and a dish column ("menu_en", "title" or "menu").');
+        }
+
+        $mealOf = fn (string $v): ?string => match (mb_strtolower(trim($v))) {
+            'breakfast', 'brakfast', 'gouter', 'goûter', 'snack' => 'breakfast',
+            'lunch', 'dej', 'déj', 'dejeuner', 'déjeuner' => 'lunch',
+            'dinner', 'diner', 'dîner' => 'dinner',
+            default => null,
+        };
+        $default = $mealOf((string) ($b['meal'] ?? 'lunch')) ?? 'lunch';
+        $replace = !empty($b['replace']);
+        $dry = !empty($b['dry']);
+
+        $created = $replaced = $kept = 0;
+        $skipped = [];
+        $dishes = [];
+        $work = function () use ($rows, $headRow, $dateCol, $nameCol, $fullCol, $descCol, $mealCol, $mealOf, $default, $replace, $dry, &$created, &$replaced, &$kept, &$skipped, &$dishes) {
+            foreach ($rows as $n => $row) {
+                if ($n === $headRow) {
+                    continue;
+                }
+                $line = $n + 1;
+                $raw = trim((string) ($row[$dateCol] ?? ''));
+                $name = trim((string) ($nameCol !== null ? ($row[$nameCol] ?? '') : ''));
+                if ($name === '' && $fullCol !== null) {
+                    $name = trim((string) ($row[$fullCol] ?? ''));
+                }
+                if ($raw === '' && $name === '') {
+                    continue;
+                }
+                if (preg_match('/^\d{4,6}(\.\d+)?$/', $raw) && (float) $raw > 20000 && (float) $raw < 80000) {
+                    $raw = gmdate('Y-m-d', (int) (((float) $raw - 25569) * 86400)); // Excel date number
+                }
+                $day = self::dayKey($raw);
+                if ($day === '') {
+                    $skipped[] = ['line' => $line, 'reason' => "Bad date \"{$raw}\""];
+                    continue;
+                }
+                if ($name === '') {
+                    $skipped[] = ['line' => $line, 'reason' => "No dish for {$day}"];
+                    continue;
+                }
+                $meal = $mealCol !== null && trim((string) ($row[$mealCol] ?? '')) !== '' ? $mealOf((string) $row[$mealCol]) : $default;
+                if ($meal === null) {
+                    $skipped[] = ['line' => $line, 'reason' => "Unknown meal \"{$row[$mealCol]}\""];
+                    continue;
+                }
+                $description = trim((string) ($descCol !== null ? ($row[$descCol] ?? '') : ''));
+
+                $existing = Menu::dish($day, $meal);
+                if ($existing !== null && !$replace) {
+                    $kept++;
+                    $dishes["{$day} {$meal}"] = 'kept: ' . $existing['name'];
+                    continue;
+                }
+                $dry || Menu::set($day, $meal, $name, $description);
+                $existing !== null ? $replaced++ : $created++;
+                $dishes["{$day} {$meal}"] = $name;
+            }
+        };
+        $dry ? $work() : DB::transaction($work);
+
+        ksort($dishes);
+        return [
+            'preview' => $dry,
+            'added' => $created,
+            'replaced' => $replaced,
+            'keptExisting' => $kept,
+            'skipped' => count($skipped),
+            'dishes' => $dishes,
+            'skippedRows' => array_slice($skipped, 0, 40),
+        ];
+    }
+
+    /** Import users from the Excel list (nom, prenom, n_carte, dept, poste, user_name, PW, immatricule). Real data. */
+    private function importUsers(array $b): array
+    {
+        $path = (string) ($b['_file'] ?? '');
+        if ($path === '' || !TableReader::supports((string) ($b['_filename'] ?? ''))) {
+            self::fail(400, 'Choose a .xlsx, .ods, .csv, .tsv or .txt file.');
+        }
+        $result = UserImport::sheet($path, !empty($b['dry']), (string) $b['_filename']);
+        $result['skippedCount'] = count($result['skipped']);
+        $result['skipped'] = array_slice($result['skipped'], 0, 40);
+        return $result;
+    }
+
+    /**
+     * Import reservations from the table export (columns: date resrvation, nom, prenom, n carte, is bloquer,
+     * gouter / etat gouter, dej / etat dej, diner / etat diner). Real data, not tracked as test data.
+     * gouter = breakfast slot (bool), dej = lunch (bool2), diner = dinner (bool3); "etat" = served at the door.
+     * People are matched by card number, then by last + first name. A booking that already exists that day is
+     * merged (meals added, served marks added), never duplicated. Everything runs in one transaction.
+     */
+    private function importReservations(array $b): array
+    {
+        $path = (string) ($b['_file'] ?? '');
+        if ($path === '' || !TableReader::supports((string) ($b['_filename'] ?? ''))) {
+            self::fail(400, 'Choose a .xlsx, .ods, .csv, .tsv or .txt file.');
+        }
+        try {
+            $rows = TableReader::rows($path, (string) $b['_filename']);
+        } catch (\RuntimeException $e) {
+            self::fail(400, $e->getMessage());
+        }
+        if ($rows === []) {
+            self::fail(400, 'The sheet is empty.');
+        }
+        $headRow = array_key_first($rows);
+        $col = [];
+        foreach ($rows[$headRow] as $i => $h) {
+            $col[mb_strtolower(trim(str_replace("\u{FEFF}", '', $h)))] = $i;
+        }
+        $dateCol = $col['date resrvation'] ?? $col['date reservation'] ?? $col['date'] ?? null;
+        if ($dateCol === null || !isset($col['nom'], $col['prenom'])) {
+            self::fail(400, 'Missing columns: need "date resrvation", "nom" and "prenom" (and "n carte" to match by card).');
+        }
+        $dry = !empty($b['dry']);
+
+        $norm = fn (string $v) => mb_strtolower(trim(preg_replace('/[\s\x{00A0}]+/u', ' ', $v)));
+        $byCard = [];
+        $byName = [];
+        foreach (DB::table('user')->get(['id', 'firstname', 'lastname', 'card_id']) as $u) {
+            if ($u->card_id) {
+                $byCard[(string) $u->card_id][] = $u;
+            }
+            $byName[$norm((string) $u->lastname) . '|' . $norm((string) $u->firstname)][] = $u;
+        }
+
+        // meal => [booked column in the file, served column in the file, oder booked, oder served]
+        $slots = [
+            'breakfast' => ['gouter', 'etat gouter', 'bool', 'attended_breakfast'],
+            'lunch' => ['dej', 'etat dej', 'bool2', 'attended_lunch'],
+            'dinner' => ['diner', 'etat diner', 'bool3', 'attended_dinner'],
+        ];
+        $on = function (array $row, string $name) use ($col): bool {
+            return isset($col[$name]) && in_array(strtolower(trim((string) ($row[$col[$name]] ?? ''))), ['1', 'true', 'oui', 'yes', 'x'], true);
+        };
+
+        $created = $merged = $unchanged = $blocked = 0;
+        $skipped = [];
+        $days = [];
+        $seen = [];
+
+        $work = function () use ($rows, $headRow, $col, $dateCol, $norm, $byCard, $byName, $slots, $on, $dry, &$created, &$merged, &$unchanged, &$blocked, &$skipped, &$days, &$seen) {
+            foreach ($rows as $n => $row) {
+                if ($n === $headRow) {
+                    continue;
+                }
+                $line = $n + 1;
+                $nom = trim((string) ($row[$col['nom']] ?? ''));
+                $prenom = trim((string) ($row[$col['prenom']] ?? ''));
+                $rawDate = trim((string) ($row[$dateCol] ?? ''));
+                if ($nom === '' && $prenom === '' && $rawDate === '') {
+                    continue;
+                }
+                if (preg_match('/^\d{4,6}(\.\d+)?$/', $rawDate) && (float) $rawDate > 20000 && (float) $rawDate < 80000) {
+                    $rawDate = gmdate('Y-m-d', (int) (((float) $rawDate - 25569) * 86400)); // Excel date number
+                }
+                $day = self::dayKey($rawDate);
+                if ($day === '') {
+                    $skipped[] = ['line' => $line, 'reason' => "Bad date \"{$rawDate}\""];
+                    continue;
+                }
+                $meals = [];
+                $served = [];
+                foreach ($slots as $meal => [$bookedName, $servedName]) {
+                    if ($on($row, $bookedName) || $on($row, $servedName)) {
+                        $meals[] = $meal;
+                        if ($on($row, $servedName)) {
+                            $served[] = $meal;
+                        }
+                    }
+                }
+                if ($meals === []) {
+                    $skipped[] = ['line' => $line, 'reason' => 'No meal booked'];
+                    continue;
+                }
+
+                $card = isset($col['n carte']) ? ltrim((string) preg_replace('/\D+/', '', (string) ($row[$col['n carte']] ?? '')), '0') : '';
+                $found = $card !== '' ? ($byCard[$card] ?? []) : [];
+                if (count($found) !== 1) {
+                    $byNames = $byName[$norm($nom) . '|' . $norm($prenom)] ?? [];
+                    $found = count($found) > 1
+                        ? array_values(array_filter($found, fn ($u) => in_array($u, $byNames, true)))
+                        : $byNames;
+                }
+                if (count($found) !== 1) {
+                    $skipped[] = ['line' => $line, 'reason' => (count($found) > 1 ? 'More than one person matches' : 'Nobody matches') . " {$nom} {$prenom}" . ($card !== '' ? " (card {$card})" : '')];
+                    continue;
+                }
+                $user = $found[0];
+
+                if (isset($seen[$user->id . '|' . $day])) {
+                    $skipped[] = ['line' => $line, 'reason' => "{$nom} {$prenom} appears twice on {$day} (first line kept)"];
+                    continue;
+                }
+                $seen[$user->id . '|' . $day] = true;
+                if ($on($row, 'is bloquer')) {
+                    $blocked++; // the "blocked" flag is not imported
+                }
+
+                $data = [];
+                foreach ($meals as $meal) {
+                    $data[$slots[$meal][2]] = 1;
+                }
+                foreach ($served as $meal) {
+                    $data[$slots[$meal][3]] = 1;
+                }
+                $existing = DB::table('oder')->where('user', $user->id)->where('date', '>=', "$day 00:00:00.000")->where('date', '<=', "$day 23:59:59.999")->first();
+                if ($existing !== null) {
+                    $change = array_filter($data, fn ($v, $k) => (int) $existing->{$k} !== (int) $v, ARRAY_FILTER_USE_BOTH);
+                    if ($change === []) {
+                        $unchanged++;
+                    } else {
+                        $dry || ControlRows::update('oder', (string) $existing->id, $change);
+                        $merged++;
+                    }
+                } else {
+                    $dry || ControlRows::insert('oder', $data + ['user' => $user->id, 'date' => $day]);
+                    $created++;
+                }
+                $days[$day] = ($days[$day] ?? 0) + 1;
+            }
+        };
+        $dry ? $work() : DB::transaction($work);
+
+        ksort($days);
+        return [
+            'preview' => $dry,
+            'created' => $created,
+            'mergedIntoExisting' => $merged,
+            'alreadyThere' => $unchanged,
+            'skipped' => count($skipped),
+            'blockedFlagIgnored' => $blocked,
+            'days' => $days,
+            'skippedRows' => array_slice($skipped, 0, 40),
+        ];
     }
 
     /** Act like the door: mark some booked meals served and some missed (with strikes). */

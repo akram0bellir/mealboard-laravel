@@ -99,6 +99,8 @@ Route::middleware(['auth', 'side:admin', 'admin.page'])->group(function () {
     Route::post('/settings/groups/{id}/delete', [SettingsController::class, 'deleteGroup']);
     Route::post('/settings/groups/{id}/ramadan', [SettingsController::class, 'ramadanTimes']);
     Route::post('/settings/departments', [SettingsController::class, 'departments']);
+    Route::post('/settings/departments/add', [SettingsController::class, 'addDepartment']);
+    Route::post('/settings/departments/{id}/delete', [SettingsController::class, 'deleteDepartment']);
     Route::post('/settings/smtp', [SettingsController::class, 'smtp']);
     Route::post('/settings/daily', [SettingsController::class, 'daily']);
     Route::post('/settings/managers/weekly', [SettingsController::class, 'managerWeekly']);

@@ -376,6 +376,8 @@
     return tableDefs;
   }
 
+  loaders.import = async () => {};
+
   loaders.inject = async () => {
     const [inj, defs] = await Promise.all([api('injected'), loadTables()]);
     $('#injected').textContent = 'Injected so far: ' + Object.entries(inj).map(([k, v]) => k + ' ' + v).join(', ');
@@ -800,6 +802,58 @@
       if (current === 'email') loaders.email();
     } catch (ex) { /* shown */ }
   }));
+
+  // File upload forms (multipart: the JSON helper can't carry a file). Two buttons: Preview (saves nothing) and Import now.
+  $$('form[data-upload]').forEach((f) => f.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const dry = !e.submitter || e.submitter.value !== 'import';
+    if (!dry && !confirm(f.dataset.confirm || 'This writes to the REAL database. Continue?')) return;
+    const buttons = $$('button[type="submit"]', f);
+    const fd = new FormData(f);
+    fd.set('dry', dry ? '1' : '');
+    buttons.forEach((b) => { b.disabled = true; });
+    show(f.dataset.out, (dry ? 'Reading the file…' : 'Importing… this can take a couple of minutes, keep this page open.'), true);
+    try {
+      const res = await fetch('?a=' + encodeURIComponent(f.dataset.upload), { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRF': csrf() }, body: fd });
+      let data = null;
+      try { data = await res.json(); } catch (ex) { /* not JSON */ }
+      if (res.status === 401) { location.reload(); return; }
+      if (!res.ok) { show(f.dataset.out, 'FAILED: ' + ((data && data.message) || ('HTTP ' + res.status)), false); toast((data && data.message) || 'Failed', false); return; }
+      const head = dry ? 'PREVIEW ONLY: nothing was saved. Click "Import now" to save.\n\n' : 'DONE: saved to the database.\n\n';
+      show(f.dataset.out, head + JSON.stringify(data, null, 2), true);
+      toast(dry ? 'Preview done: nothing was saved' : 'Import done: saved');
+    } catch (ex) {
+      show(f.dataset.out, 'FAILED: ' + String(ex.message || ex), false);
+    } finally {
+      buttons.forEach((b) => { b.disabled = false; });
+    }
+  }));
+
+  // "Any table" import: show the columns of the chosen table, and offer an empty CSV with those columns.
+  (() => {
+    const form = $('#import-table-form');
+    if (!form) return;
+    let tables = {};
+    try { tables = JSON.parse(form.dataset.tables || '{}'); } catch (e) { /* ignore */ }
+    const pick = $('#import-table-pick');
+    const refresh = () => {
+      const t = tables[pick.value] || { columns: [], key: [] };
+      $('#import-table-cols').textContent = t.columns.join(', ');
+      $('#import-table-key').textContent = pick.value === 'user' ? 'same username or e-mail' : (t.key.length ? t.key.join(' + ') : 'the table has one row: it is updated in place') + ' (or the same id)';
+    };
+    pick.addEventListener('change', refresh);
+    refresh();
+    $('#import-table-template').addEventListener('click', () => {
+      const t = tables[pick.value];
+      if (!t) return;
+      const blob = new Blob(['﻿' + t.columns.join(',') + '\r\n'], { type: 'text/csv' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = pick.value + '.csv';
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    });
+  })();
 
   /* -------------------------------- start ------------------------------ */
 

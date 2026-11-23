@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Services\BookingRules;
+use App\Services\Menu;
 use App\Support\Days;
 use App\Support\Ids;
 use Illuminate\Http\RedirectResponse;
@@ -28,11 +29,7 @@ class MealController extends Controller
         'vip_snacks' => 'VIP Snacks',
     ];
 
-    private const FIELDS = [
-        'breakfast' => ['brakfast_title', 'brakfast_description'],
-        'lunch' => ['lunch_title', 'lunch_description'],
-        'dinner' => ['Dinner_title', 'Dinner_description'],
-    ];
+    private const FIELDS = Menu::FIELDS;
 
     private const BOOKED = ['breakfast' => 'bool', 'lunch' => 'bool2', 'dinner' => 'bool3'];
 
@@ -265,24 +262,7 @@ class MealController extends Controller
     /** Sets (or, with an empty name, clears) one dish in the day's menu row. */
     private function setDish(string $day, string $meal, string $name, string $description): void
     {
-        [$title, $desc] = self::FIELDS[$meal];
-        $row = DB::table('meun')->where('day', '>=', "$day 00:00:00.000")->where('day', '<=', "$day 23:59:59.999")->orderBy('created')->first();
-        $now = Ids::now();
-
-        if ($row === null) {
-            if ($name === '') {
-                return;
-            }
-            $blank = ['brakfast_title' => '', 'brakfast_description' => '', 'lunch_title' => '', 'lunch_description' => '', 'Dinner_title' => '', 'Dinner_description' => ''];
-            DB::table('meun')->insert(array_merge($blank, [$title => $name, $desc => $description, 'id' => Ids::new(), 'day' => Days::toDb($day), 'created' => $now, 'updated' => $now]));
-            return;
-        }
-
-        DB::table('meun')->where('id', $row->id)->update([$title => $name, $desc => $description, 'updated' => $now]);
-        $left = DB::table('meun')->where('id', $row->id)->first();
-        if (collect(self::FIELDS)->every(fn ($f) => trim((string) $left->{$f[0]}) === '')) {
-            DB::table('meun')->where('id', $row->id)->delete(); // an empty day is no day
-        }
+        Menu::set($day, $meal, $name, $description);
     }
 
     /** Copies every dish of one week onto another, skipping past target days. Returns how many dishes were copied. */

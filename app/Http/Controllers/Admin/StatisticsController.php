@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Services\BookingRules;
+use App\Services\Departments;
 use App\Services\Explore;
 use App\Services\ManagerMeals;
 use App\Services\Settings;
@@ -309,7 +310,7 @@ class StatisticsController extends Controller
                 $weekly[] = ['key' => $start, 'label' => Days::fromKey($start)->translatedFormat('j M'), 'volume' => count($inWeek), 'rate' => S::ratio(count($inWeek) - S::missedCount($inWeek), count($inWeek))];
             }
         }
-        $depts = array_values(array_unique(array_merge(S::DEPARTMENTS, array_column($items, 'dept'))));
+        $depts = array_values(array_unique(array_merge(Departments::names(), array_column($items, 'dept'))));
         $cell = function (array $list) {
             return $list ? ['size' => count($list), 'rate' => S::ratio(S::missedCount($list), count($list))] : null;
         };

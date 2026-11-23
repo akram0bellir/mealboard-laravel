@@ -57,7 +57,7 @@ class DashboardController extends Controller
             foreach (BookingRules::MEALS as $meal) {
                 $meals[$meal] = [
                     'name' => $dishes[$meal] ?? null,
-                    'bookings' => isset($dishes[$meal]) ? ($counts[$meal] ?? 0) : 0,
+                    'bookings' => $counts[$meal] ?? 0, // booked meals count even when no dish is on the menu that day
                     'manager' => $manager[$meal],
                 ];
             }

@@ -152,10 +152,10 @@
                   <tbody>
                     @foreach ($departments as $d)
                       <tr class="border-t border-ink/10">
-                        <td class="py-3 font-medium whitespace-nowrap">{{ t('Department') }} {{ $d }}</td>
+                        <td class="py-3 font-medium whitespace-nowrap">{{ $d }}</td>
                         @foreach ($meals as $m)
                           <td class="py-2 ps-2">
-                            <x-admin.select name="groups[{{ $d }}][{{ $m }}]" aria-label="{{ t('Department {0} {1} group', [0 => $d, 1 => mb_strtolower(t(ucfirst($m)))]) }}" class="!h-10 min-w-32 text-[14px]">
+                            <x-admin.select name="groups[{{ $deptRows->get($d)->id }}][{{ $m }}]" aria-label="{{ t('Department {0} {1} group', [0 => $d, 1 => mb_strtolower(t(ucfirst($m)))]) }}" class="!h-10 min-w-32 text-[14px]">
                               <option value="">{{ t('Normal time') }}</option>
                               @foreach ($groups->filter(fn ($g) => MealTimes::mealOf($g->meal) === $m) as $g)
                                 <option value="{{ $g->id }}" @selected(($deptRows->get($d)?->{$m . '_group'} ?? '') === $g->id)>{{ $g->name }} · {{ $g->start }}–{{ $g->end }}</option>
@@ -209,6 +209,34 @@
           </form>
         </x-admin.card>
 
+        {{-- ---------------------------------------------------------------- Department list --}}
+        <x-admin.card tone="page" id="department-list" class="scroll-mt-6">
+          <div class="flex flex-col gap-5">
+            <div>
+              <h2 class="flex items-center gap-2 text-2xl font-medium tracking-[-0.01em]"><x-lucide-list class="size-5" aria-hidden="true" />{{ t('Departments') }}</h2>
+              <p class="mt-1 text-[14px] text-mute">{{ t('The list people are picked from on the Users page. Add as many as you need; a user keeps the department name as text.') }}</p>
+            </div>
+            <form method="POST" action="/settings/departments/add" class="flex flex-wrap items-end gap-3">
+              @csrf
+              <div class="w-72 max-w-full"><x-admin.field :label="t('New department')" for="dep-new"><x-admin.input id="dep-new" name="name" maxlength="100" required placeholder="{{ t('e.g. Maintenance') }}" /></x-admin.field></div>
+              <x-admin.btn type="submit" variant="dark">{{ t('Add department') }}</x-admin.btn>
+            </form>
+            <ul class="flex flex-wrap gap-2">
+              @foreach ($departments as $d)
+                @php $dr = $deptRows->get($d); $n = (int) ($deptCounts[$d] ?? 0); @endphp
+                <li class="flex items-center gap-2 rounded-full bg-cream py-1 ps-4 pe-1 text-[14px]">
+                  <span class="font-medium">{{ $d }}</span><span class="text-mute tabular-nums">{{ $n }}</span>
+                  <form method="POST" action="/settings/departments/{{ $dr->id }}/delete">
+                    @csrf
+                    <button type="submit" @disabled($n > 0) title="{{ $n > 0 ? t('Move its people first') : t('Remove') }}" aria-label="{{ t('Remove {0}', [0 => $d]) }}" class="inline-flex size-8 cursor-pointer items-center justify-center rounded-full transition hover:bg-cream-deep disabled:pointer-events-none disabled:opacity-30"><x-lucide-x class="size-4" /></button>
+                  </form>
+                </li>
+              @endforeach
+            </ul>
+            {!! $note('department-list') !!}
+          </div>
+        </x-admin.card>
+
         {{-- ---------------------------------------------------------------- Department rules --}}
         <x-admin.card tone="page" id="departments" class="scroll-mt-6">
           <form method="POST" action="/settings/departments" class="flex flex-col gap-5">
@@ -223,9 +251,9 @@
                 @foreach ($departments as $d)
                   @php $row = $deptRows->get($d); $on = ['breakfast' => $row ? (int) $row->breakefast === 1 : false, 'lunch' => $row ? (int) $row->lunch === 1 : true, 'dinner' => $row ? (int) $row->dinner === 1 : false]; @endphp
                   <tr class="border-t border-ink/10">
-                    <td class="py-3 font-medium">{{ t('Department') }} {{ $d }}</td>
+                    <td class="py-3 font-medium">{{ $d }}</td>
                     @foreach ($meals as $m)
-                      <td class="py-3 text-center"><span class="inline-flex justify-center"><x-admin.check id="dr-{{ $d }}-{{ $m }}" name="meals[{{ $d }}][{{ $m }}]" :checked="$on[$m]" :label="t('Department {0} can book {1}', [0 => $d, 1 => mb_strtolower(t(ucfirst($m)))])" /></span></td>
+                      <td class="py-3 text-center"><span class="inline-flex justify-center"><x-admin.check id="dr-{{ $row->id }}-{{ $m }}" name="meals[{{ $row->id }}][{{ $m }}]" :checked="$on[$m]" :label="t('Department {0} can book {1}', [0 => $d, 1 => mb_strtolower(t(ucfirst($m)))])" /></span></td>
                     @endforeach
                   </tr>
                 @endforeach
