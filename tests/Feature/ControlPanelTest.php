@@ -32,7 +32,8 @@ class ControlPanelTest extends TestCase
         $this->get('/control')->assertOk()->assertSee('id="login-form"', false)->assertDontSee('data-panel="health"', false);
         $this->signIn()->assertOk()->assertJson(['ok' => true, 'name' => 'Admin']);
         $this->get('/control')->assertOk()->assertSee('data-panel="health"', false)->assertSee('mealboard_test')
-            ->assertHeader('X-Frame-Options', 'DENY')->assertSee('/control-assets/app.js', false);
+            ->assertHeader('X-Frame-Options', 'DENY')->assertSee('/control-assets/app.js', false)
+            ->assertSee('data-tab="today"', false)->assertSee('data-form="today_add_booking"', false);
     }
 
     public function test_who_may_sign_in(): void
@@ -59,6 +60,7 @@ class ControlPanelTest extends TestCase
     public function test_actions_need_the_sign_in_and_the_token(): void
     {
         $this->postJson('/control?a=health')->assertStatus(401);
+        $this->postJson('/control?a=today_bookings')->assertStatus(401);
         $this->signIn();
         $this->postJson('/control?a=health', [], ['X-CSRF' => 'wrong'])->assertStatus(403);
         $this->act('health')->assertOk();
@@ -88,6 +90,7 @@ class ControlPanelTest extends TestCase
 
         $this->act('cron_state')->assertOk()->assertJsonStructure(['log', 'marked', 'daily' => ['settings', 'last'], 'cronUrl', 'cliCron', 'cliBackup']);
         $this->act('emails_list')->assertOk()->assertJsonStructure(['rows']);
+        $this->act('today_bookings')->assertOk()->assertJsonStructure(['date', 'peopleCount', 'meals' => ['lunch' => ['booked', 'served', 'missed', 'left']], 'people']);
         $this->act('injected')->assertOk()->assertJsonStructure(['test people (by username)']);
         $this->act('activity')->assertOk()->assertJsonStructure(['rows']);
         $tables = collect($this->act('tables')->assertOk()->json('tables'));
@@ -164,6 +167,39 @@ class ControlPanelTest extends TestCase
         $this->act('inject_row', ['table' => 'food', 'data' => 'not json'])->assertStatus(400);
         $this->act('cleanup');
         $this->assertFalse(DB::table('food')->where('id', $food['id'])->exists());
+    }
+
+    public function test_today_bookings_summarizes_the_people_and_meal_progress(): void
+    {
+        $served = $this->person(['lastname' => 'TodayServed']);
+        $left = $this->person(['lastname' => 'TodayLeft']);
+        $this->order($served, '2026-11-05', ['lunch'], ['attended_lunch' => 1]);
+        $this->order($left, '2026-11-05', ['breakfast']);
+        $this->signIn();
+
+        $result = $this->act('today_bookings')->assertOk()->json();
+        $this->assertSame('2026-11-05', $result['date']);
+        $this->assertGreaterThanOrEqual(2, $result['peopleCount']);
+        $this->assertGreaterThanOrEqual(1, $result['meals']['lunch']['served']);
+        $this->assertGreaterThanOrEqual(1, $result['meals']['breakfast']['left']);
+        $this->assertContains('Test TodayServed', array_column($result['people'], 'name'));
+        $this->assertContains('Test TodayLeft', array_column($result['people'], 'name'));
+    }
+
+    public function test_control_can_add_a_meal_today_even_when_normal_user_rules_would_block_it(): void
+    {
+        $person = $this->person(['Status' => 0, 'Lunch' => 0]);
+        $this->signIn();
+
+        $this->act('today_add_booking', ['identity' => $person->username, 'meal' => 'lunch'])
+            ->assertOk()->assertJson(['added' => true, 'alreadyBooked' => false, 'meal' => 'lunch', 'date' => '2026-11-05']);
+        $order = DB::table('oder')->where('user', $person->id)->where('date', '>=', '2026-11-05 00:00:00.000')->where('date', '<=', '2026-11-05 23:59:59.999')->first();
+        $this->assertSame(1, (int) $order->bool2);
+        $this->assertSame(0, (int) $order->attended_lunch);
+
+        $this->act('today_add_booking', ['identity' => $person->username, 'meal' => 'lunch'])
+            ->assertOk()->assertJson(['added' => false, 'alreadyBooked' => true]);
+        $this->assertSame(1, DB::table('oder')->where('user', $person->id)->where('date', '>=', '2026-11-05 00:00:00.000')->where('date', '<=', '2026-11-05 23:59:59.999')->count());
     }
 
     public function test_the_table_editor_saves_searches_and_keeps_the_strikes_right(): void

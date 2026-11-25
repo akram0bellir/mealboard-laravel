@@ -318,6 +318,29 @@
 
   const stateLabel = { ready: 'ready', done: 'ok', wait: 'info', blocked: 'warn', skip: 'info', off: 'info' };
 
+  const mealLabels = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner' };
+  const mealStatus = { served: 'Served', missed: 'Missed', left: 'Left' };
+
+  loaders.today = async () => {
+    const data = await api('today_bookings');
+    $('#today-date').textContent = data.date;
+    $('#today-people-count').textContent = data.peopleCount + ' people booked today';
+    $('#today-progress').innerHTML = table(Object.entries(data.meals).map(([meal, counts]) => ({
+      meal: mealLabels[meal] || meal,
+      booked: counts.booked,
+      served: counts.served,
+      missed: counts.missed,
+      left: counts.left,
+    })), { columns: ['meal', 'booked', 'served', 'missed', 'left'] });
+    $('#today-bookings').innerHTML = table(data.people.map((person) => ({
+      person: person.name,
+      department: person.department,
+      breakfast: mealStatus[person.breakfast] || '',
+      lunch: mealStatus[person.lunch] || '',
+      dinner: mealStatus[person.dinner] || '',
+    })), { columns: ['person', 'department', 'breakfast', 'lunch', 'dinner'] });
+  };
+
   async function loadPreview(at) {
     const p = await api('cron_preview', at ? { at } : {});
     $('#preview').innerHTML =
@@ -791,6 +814,7 @@
   $$('form[data-form]').forEach((f) => f.addEventListener('submit', async (e) => {
     e.preventDefault();
     const body = formBody(f);
+    if (f.dataset.form === 'today_add_booking' && !confirm('Add ' + body.identity + ' to ' + body.meal + ' today, bypassing normal booking rules?')) return;
     if (f.dataset.form === 'inject_row') {
       try { body.data = JSON.parse(body.data); } catch (ex) { toast('The row is not valid JSON: ' + ex.message, false); return; }
     }

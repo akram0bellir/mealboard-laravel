@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Control;
 
 use App\Services\Backup;
 use App\Services\BookingRules;
+use App\Services\Bookings;
 use App\Services\Cron;
 use App\Services\DayOrders;
 use App\Services\Mailer;
@@ -30,7 +31,7 @@ class ControlActions
     public const TEST_PREFIX = 'test_';
 
     /** Actions that only read: not written to the activity log. */
-    public const READ_ACTIONS = ['health', 'cron_state', 'cron_preview', 'emails_list', 'injected', 'tables', 'table_rows', 'table_columns', 'activity'];
+    public const READ_ACTIONS = ['health', 'cron_state', 'cron_preview', 'today_bookings', 'emails_list', 'injected', 'tables', 'table_rows', 'table_columns', 'activity'];
 
     /** Internal tables the panel shows (read only) and how they are sorted. */
     private const INTERNAL_TABLES = [
@@ -71,6 +72,8 @@ class ControlActions
 
             'cron_state' => $this->cronState(),
             'cron_preview' => $this->cronPreview(isset($b['at']) ? (string) $b['at'] : null),
+            'today_bookings' => $this->todayBookings(),
+            'today_add_booking' => $this->todayAddBooking($b),
             'cron_run' => Cron::run('control'),
             'emails_flush' => $this->emailsFlush(),
             'daily_list_send' => $this->dailyListSend($b),
@@ -178,6 +181,95 @@ class ControlActions
     private static function meal(mixed $value): ?string
     {
         return MealTimes::mealOf((string) $value);
+    }
+
+    /** Today's booked people and meal progress for the control panel. */
+    private function todayBookings(): array
+    {
+        $day = Days::today();
+        $users = DB::table('user')->get(['id', 'firstname', 'lastname', 'Department'])->keyBy('id');
+        $people = [];
+
+        foreach (DB::table('oder')->where('date', '>=', "{$day} 00:00:00.000")->where('date', '<=', "{$day} 23:59:59.999")->get() as $order) {
+            $id = (string) $order->user;
+            $user = $users->get($id);
+            $people[$id] ??= [
+                'name' => $user ? (trim($user->firstname . ' ' . $user->lastname) ?: 'Unknown user') : 'Unknown user',
+                'department' => (string) ($user->Department ?? ''),
+                'breakfast' => '',
+                'lunch' => '',
+                'dinner' => '',
+            ];
+            foreach (self::BOOKED as $meal => $column) {
+                if ((int) $order->{$column} !== 1) {
+                    continue;
+                }
+                $status = (int) $order->{'attended_' . $meal} === 1
+                    ? 'served'
+                    : ((int) $order->{'no_show_' . $meal} === 1 ? 'missed' : 'left');
+                $current = $people[$id][$meal];
+                if ($current === '' || $status === 'served' || ($status === 'missed' && $current === 'left')) {
+                    $people[$id][$meal] = $status;
+                }
+            }
+        }
+
+        $summary = array_fill_keys(array_keys(self::BOOKED), ['booked' => 0, 'served' => 0, 'missed' => 0, 'left' => 0]);
+        foreach ($people as $person) {
+            foreach (array_keys(self::BOOKED) as $meal) {
+                $status = $person[$meal];
+                if ($status !== '') {
+                    $summary[$meal]['booked']++;
+                    $summary[$meal][$status]++;
+                }
+            }
+        }
+        $people = array_values($people);
+        usort($people, fn ($a, $b) => strcmp(mb_strtolower($a['name']), mb_strtolower($b['name'])));
+
+        return ['date' => $day, 'peopleCount' => count($people), 'meals' => $summary, 'people' => $people];
+    }
+
+    /** Adds one meal for one person today, bypassing normal booking rules and leaving served status untouched. */
+    private function todayAddBooking(array $b): array
+    {
+        $identity = trim((string) ($b['identity'] ?? ''));
+        if ($identity === '' || mb_strlen($identity) > 255) {
+            self::fail(400, 'Enter a username, e-mail, account id, or card number.');
+        }
+        $meal = self::meal($b['meal'] ?? '');
+        if ($meal === null) {
+            self::fail(400, 'Choose a valid meal.');
+        }
+
+        $lower = mb_strtolower($identity);
+        $matches = DB::table('user')->where(function ($query) use ($identity, $lower) {
+            $query->where('id', $identity)
+                ->orWhereRaw('LOWER(email) = ?', [$lower])
+                ->orWhereRaw('LOWER(username) = ?', [$lower]);
+            if (ctype_digit($identity)) {
+                $query->orWhere('card_id', $identity)->orWhere('id_user', $identity);
+            }
+        })->limit(2)->get(['id', 'firstname', 'lastname']);
+
+        if ($matches->isEmpty()) {
+            self::fail(400, 'No person matches that username, e-mail, id, or card number.');
+        }
+        if ($matches->count() !== 1) {
+            self::fail(400, 'More than one person matches. Use a unique username or account id.');
+        }
+
+        $person = $matches->first();
+        $result = Bookings::adminAdd((string) $person->id, Days::today(), [$meal]);
+
+        return [
+            'ok' => true,
+            'date' => Days::today(),
+            'name' => trim($person->firstname . ' ' . $person->lastname) ?: 'Unknown user',
+            'meal' => $meal,
+            'added' => in_array($meal, $result['added'], true),
+            'alreadyBooked' => in_array($meal, $result['already'], true),
+        ];
     }
 
     private function dailySettings(): array

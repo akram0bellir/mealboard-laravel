@@ -14,7 +14,7 @@ use Symfony\Component\HttpFoundation\Response;
 class AdminPage
 {
     /** Pages a manager may open (and everything under them). */
-    public const MANAGER_PAGES = ['admin', 'meals', 'reports', 'statistics'];
+    public const MANAGER_PAGES = ['admin', 'meals', 'reports', 'statistics', 'kitchen'];
 
     public function handle(Request $request, Closure $next): Response
     {

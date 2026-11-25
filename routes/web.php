@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\AttendanceController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\DinerController;
 use App\Http\Controllers\Admin\InvoiceController;
+use App\Http\Controllers\Admin\KitchenController;
 use App\Http\Controllers\Admin\MealController;
 use App\Http\Controllers\Admin\NotifyController;
 use App\Http\Controllers\Admin\PenaltyController;
@@ -67,6 +68,7 @@ Route::middleware(['auth', 'side:admin', 'admin.page'])->group(function () {
     Route::post('/admin/orders-email', [DashboardController::class, 'emailOrders']);
 
     Route::get('/meals', [MealController::class, 'index']);
+    Route::get('/kitchen', [KitchenController::class, 'index']);
     Route::post('/meals/slot', [MealController::class, 'saveSlot']);
     Route::post('/meals/slot/remove', [MealController::class, 'removeSlot']);
     Route::post('/meals/place', [MealController::class, 'place']);

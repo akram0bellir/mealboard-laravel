@@ -35,6 +35,7 @@
   <strong>Mealboard Control</strong>
   <nav id="tabs">
     <button data-tab="health" class="active">Health</button>
+    <button data-tab="today">Today's meals</button>
     <button data-tab="cron">Cron</button>
     <button data-tab="inject">Inject data</button>
     <button data-tab="import">Import</button>
@@ -58,6 +59,33 @@
     <button class="primary" data-run="health"><i class="ri ri-refresh"></i> Re-check</button>
   </div>
   <div id="bento" class="bento"><div class="tile s12 hint">Checking…</div></div>
+</section>
+
+<!-- TODAY'S MEALS -->
+<section data-panel="today" hidden>
+  <div class="bar">
+    <h2>Today's meals</h2>
+    <span class="hint" id="today-date"></span>
+    <span class="grow"></span>
+    <button data-run="today"><i class="ri ri-refresh"></i> Refresh</button>
+  </div>
+  <div class="card">
+    <h3 id="today-people-count">Loading today's bookings…</h3>
+    <p class="muted">“Left” means booked but not marked served or missed. Only meals with bookings appear in the counts.</p>
+    <div id="today-progress"></div>
+  </div>
+  <div class="card">
+    <h3>People booked today</h3>
+    <div id="today-bookings" class="scroll"></div>
+  </div>
+  <form class="card stack" data-form="today_add_booking" data-out="today-add-out">
+    <h3>Add someone to a meal today</h3>
+    <p class="muted">This bypasses booking deadlines, meal plans, and other booking rules. It does not mark the meal served.</p>
+    <label>Username, e-mail, account id, or card number<input name="identity" required maxlength="255" autocomplete="off"></label>
+    <label>Meal<select name="meal" required><option value="breakfast">Breakfast</option><option value="lunch" selected>Lunch</option><option value="dinner">Dinner</option></select></label>
+    <button class="primary" type="submit">Add booking for today</button>
+    <pre id="today-add-out" class="out" hidden></pre>
+  </form>
 </section>
 
 <!-- CRON -->

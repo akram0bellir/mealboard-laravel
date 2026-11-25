@@ -16,6 +16,7 @@ class AdminNav extends Component
     private const ITEMS = [
         ['/admin', 'Dashboard', 'layout-grid'],
         ['/meals', 'Meal planning', 'calendar-days'],
+        ['/kitchen', 'Kitchen counts', 'chef-hat'],
         ['/users', 'Users', 'users'],
         ['/diners', 'Book people', 'user-plus'],
         ['/attendance', 'Attendance', 'user-x'],
