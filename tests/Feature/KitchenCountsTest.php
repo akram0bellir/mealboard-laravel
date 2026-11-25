@@ -6,6 +6,14 @@ use Tests\TestCase;
 
 class KitchenCountsTest extends TestCase
 {
+    public function test_kitchen_counts_are_public_without_authentication(): void
+    {
+        $this->get('/kitchen')
+            ->assertOk()
+            ->assertSee('Kitchen counts')
+            ->assertDontSee('Log out');
+    }
+
     public function test_kitchen_counts_support_a_custom_range_meal_and_department_filter(): void
     {
         $one = $this->person(['Department' => '1']);

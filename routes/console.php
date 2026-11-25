@@ -4,6 +4,7 @@ use App\Services\Backup;
 use App\Services\Cron;
 use App\Services\DayOrders;
 use App\Services\Mailer;
+use App\Services\WeeklyBookingReminder;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schedule;
@@ -28,6 +29,11 @@ Artisan::command('mealboard:send-emails {--limit=50}', function () {
 Artisan::command('mealboard:daily-orders', function () {
     $this->info(DayOrders::runDaily());
 })->purpose('E-mail the daily order list when it is time');
+
+Artisan::command('mealboard:weekly-booking-reminder {--dry-run}', function () {
+    $result = WeeklyBookingReminder::run((bool) $this->option('dry-run'));
+    $this->line(json_encode($result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+})->purpose('Queue the Arabic weekly booking reminder for active employees');
 
 // Database dump + photos zip + clean-up of old backups.
 Artisan::command('mealboard:backup', function () {
@@ -70,7 +76,11 @@ Artisan::command('mealboard:sessions-gc', function () {
 })->purpose('Remove old sessions, expired API tokens and old failed-login records');
 Schedule::command('mealboard:sessions-gc')->dailyAt('03:30');
 
-// The same jobs as the old Windows tasks: the cron every 5 minutes, a backup every 6 hours.
+// Scheduled jobs: cron every 5 minutes, backup every 6 hours, and the Saturday 09:00 booking reminder.
 // (A host that runs `php artisan schedule:run` every minute needs nothing else.)
 Schedule::command('mealboard:cron')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('mealboard:backup')->everySixHours()->withoutOverlapping();
+Schedule::command('mealboard:weekly-booking-reminder')
+    ->weeklyOn(6, '09:00')
+    ->timezone(config('app.timezone'))
+    ->withoutOverlapping();

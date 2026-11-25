@@ -4,7 +4,8 @@
     $money = fn ($amount) => number_format($amount, 2, '.', ',') . ' ' . $currency;
     $rangeDays = count($daily);
 @endphp
-<x-layouts.admin>
+<x-layouts.app>
+  <x-page-frame>
   <x-admin.section tone="ink">
     <x-admin.heading :label="t('Kitchen counts')" :description="t('Booked meal portions by day and month, with a custom date and department filter.')">
       <x-slot:title>{{ t('Kitchen') }} <span class="text-lime">{{ t('counts') }}</span></x-slot:title>
@@ -102,4 +103,5 @@
       </table>
     </div>
   </x-admin.section>
-</x-layouts.admin>
+  </x-page-frame>
+</x-layouts.app>

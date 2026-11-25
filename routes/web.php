@@ -37,6 +37,7 @@ Route::post('/control', [\App\Http\Controllers\Control\ControlController::class,
 
 // Photos are public, like the PHP API's files route.
 Route::get('/files/{table}/{id}/{name}', [FileController::class, 'show']);
+Route::get('/kitchen', [KitchenController::class, 'index']);
 
 // Employee pages.
 Route::middleware(['auth', 'side:employee'])->group(function () {
@@ -68,7 +69,6 @@ Route::middleware(['auth', 'side:admin', 'admin.page'])->group(function () {
     Route::post('/admin/orders-email', [DashboardController::class, 'emailOrders']);
 
     Route::get('/meals', [MealController::class, 'index']);
-    Route::get('/kitchen', [KitchenController::class, 'index']);
     Route::post('/meals/slot', [MealController::class, 'saveSlot']);
     Route::post('/meals/slot/remove', [MealController::class, 'removeSlot']);
     Route::post('/meals/place', [MealController::class, 'place']);
